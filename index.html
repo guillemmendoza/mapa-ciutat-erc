@@ -342,6 +342,18 @@ const defaultCategories = [
 let categories = defaultCategories.map(c => ({ ...c }));
 function categoryOf(key) { return categories.find(c => c.key === key) || categories[categories.length - 1] || defaultCategories[defaultCategories.length - 1]; }
 
+/* Picks black or white text depending on the perceived brightness of a hex color,
+   so badges stay readable regardless of which color someone chooses for a category. */
+function readableTextColor(hex) {
+  if (!hex) return '#ffffff';
+  const c = hex.replace('#', '');
+  const r = parseInt(c.substr(0, 2), 16), g = parseInt(c.substr(2, 2), 16), b = parseInt(c.substr(4, 2), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return '#ffffff';
+  const toLinear = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const luminance = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+  return luminance > 0.5 ? '#1a1a18' : '#ffffff';
+}
+
 categoriesDocRef.onSnapshot(snap => {
   setSyncStatus(true);
   if (snap.exists && Array.isArray(snap.data().list) && snap.data().list.length) {
@@ -835,7 +847,7 @@ function renderProblemList() {
     card.className = 'problem-card';
     card.innerHTML = `
       <div class="ptitle">${p.title} ${prioBadge}</div>
-      <span class="pcat" style="background:${cat.color};color:#fff">${cat.label}</span>
+      <span class="pcat" style="background:${cat.color};color:${readableTextColor(cat.color)}">${cat.label}</span>
       ${zoneShown ? `<div class="pzone">${zoneShown}</div>` : ''}
       ${p.desc ? `<div class="pdesc">${p.desc}</div>` : ''}
       ${p.photoURL ? `<img src="${p.photoURL}">` : ''}
