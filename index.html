@@ -76,7 +76,7 @@
   .problem-card .pzone { color: var(--text-secondary); font-size: 12px; margin-bottom: 4px; }
   .problem-card .pdesc { color: var(--text-secondary); font-size: 12px; }
   .problem-card .pdelete {
-    margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--text);
+    margin-top: 6px; margin-right: 6px; font-size: 12px; font-weight: 600; color: var(--text);
     background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px;
     padding: 3px 9px; display: inline-block; cursor: pointer;
   }
@@ -224,7 +224,7 @@
 
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
-    <h3>Nova problemàtica</h3>
+    <h3 id="modal-title">Nova problemàtica</h3>
     <label>Títol</label>
     <input type="text" id="form-title" maxlength="60" placeholder="Ex: Vorera trencada" />
     <label>Categoria</label>
@@ -249,6 +249,7 @@
       <button id="form-cancel">Cancel·la</button>
       <button class="primary" id="form-save">Afegir</button>
     </div>
+    <button id="form-delete" class="small-btn" style="display:none;margin-top:8px;width:100%;color:#A32D2D">Eliminar aquesta problemàtica</button>
   </div>
 </div>
 
@@ -592,8 +593,14 @@ modeBtn.addEventListener('click', () => {
 });
 
 let pendingLatLng = null;
+let editingProblemId = null;
+
 function openProblemForm(latlng) {
+  editingProblemId = null;
   pendingLatLng = latlng;
+  document.getElementById('modal-title').textContent = 'Nova problemàtica';
+  document.getElementById('form-save').textContent = 'Afegir';
+  document.getElementById('form-delete').style.display = 'none';
   document.getElementById('form-title').value = '';
   document.getElementById('form-desc').value = '';
   document.getElementById('form-priority').value = 'mitja';
@@ -602,6 +609,25 @@ function openProblemForm(latlng) {
   document.getElementById('form-photo-preview').style.display = 'none';
   document.getElementById('upload-hint').textContent = '';
   if (categories.length) document.getElementById('form-category').value = categories[0].key;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function openEditForm(p) {
+  editingProblemId = p.id;
+  pendingLatLng = { lat: p.lat, lng: p.lng };
+  document.getElementById('modal-title').textContent = 'Editar problemàtica';
+  document.getElementById('form-save').textContent = 'Desar canvis';
+  document.getElementById('form-delete').style.display = 'block';
+  document.getElementById('form-title').value = p.title || '';
+  document.getElementById('form-desc').value = p.desc || '';
+  document.getElementById('form-priority').value = p.priority || 'mitja';
+  document.getElementById('form-zone-override').value = p.customZone || '';
+  document.getElementById('form-photo').value = '';
+  document.getElementById('upload-hint').textContent = '';
+  const preview = document.getElementById('form-photo-preview');
+  if (p.photoURL) { preview.src = p.photoURL; preview.style.display = 'block'; }
+  else { preview.style.display = 'none'; }
+  document.getElementById('form-category').value = p.category || (categories[0] && categories[0].key) || '';
   document.getElementById('modal-overlay').classList.add('open');
 }
 
@@ -647,6 +673,16 @@ document.getElementById('form-photo').addEventListener('change', (e) => {
 document.getElementById('form-cancel').onclick = () => {
   document.getElementById('modal-overlay').classList.remove('open');
   pendingLatLng = null;
+  editingProblemId = null;
+};
+
+document.getElementById('form-delete').onclick = async () => {
+  if (!editingProblemId) return;
+  if (!confirm('Segur que vols eliminar aquesta problemàtica?')) return;
+  try { await problemsCol.doc(editingProblemId).delete(); } catch (err) { alert('No s\'ha pogut eliminar: ' + err.message); }
+  document.getElementById('modal-overlay').classList.remove('open');
+  pendingLatLng = null;
+  editingProblemId = null;
 };
 
 document.getElementById('form-save').onclick = async () => {
@@ -662,7 +698,8 @@ document.getElementById('form-save').onclick = async () => {
   const hint = document.getElementById('upload-hint');
   saveBtn.disabled = true;
 
-  let photoURL = null;
+  const wasEditingId = editingProblemId;
+  let photoURL = wasEditingId ? (problems.find(p => p.id === wasEditingId) || {}).photoURL || null : null;
   try {
     if (file) {
       hint.textContent = 'Pujant la foto...';
@@ -671,12 +708,18 @@ document.getElementById('form-save').onclick = async () => {
       await ref.put(file);
       photoURL = await ref.getDownloadURL();
     }
-    await problemsCol.add({
-      title, category, priority, desc,
-      lat: pendingLatLng.lat, lng: pendingLatLng.lng,
-      zoneNames, customZone, photoURL,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    if (wasEditingId) {
+      await problemsCol.doc(wasEditingId).update({
+        title, category, priority, desc, zoneNames, customZone, photoURL
+      });
+    } else {
+      await problemsCol.add({
+        title, category, priority, desc,
+        lat: pendingLatLng.lat, lng: pendingLatLng.lng,
+        zoneNames, customZone, photoURL,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
   } catch (err) {
     alert("No s'ha pogut guardar la problemàtica: " + err.message);
   }
@@ -685,6 +728,7 @@ document.getElementById('form-save').onclick = async () => {
   hint.textContent = '';
   document.getElementById('modal-overlay').classList.remove('open');
   pendingLatLng = null;
+  editingProblemId = null;
 };
 
 /* ---------- problems data + markers (synced via Firestore) ---------- */
@@ -749,14 +793,19 @@ function renderProblemList() {
       ${p.photoURL ? `<img src="${p.photoURL}">` : ''}
     `;
     card.addEventListener('click', (e) => {
-      if (e.target.classList.contains('pdelete')) return;
+      if (e.target.classList.contains('pdelete') || e.target.classList.contains('pedit')) return;
       map.setView([p.lat, p.lng], 17);
       if (markersById[p.id]) markersById[p.id].openPopup();
     });
+    const edit = document.createElement('span');
+    edit.className = 'pdelete pedit';
+    edit.textContent = 'Editar';
+    edit.addEventListener('click', (e) => { e.stopPropagation(); openEditForm(p); });
     const del = document.createElement('span');
     del.className = 'pdelete';
     del.textContent = 'Eliminar';
     del.addEventListener('click', (e) => { e.stopPropagation(); removeProblem(p); });
+    card.appendChild(edit);
     card.appendChild(del);
     listEl.appendChild(card);
   });
