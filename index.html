@@ -129,6 +129,7 @@
   .zone-select-row button { flex-shrink: 0; }
 
   /* ---------- responsive (mobile) ---------- */
+  #more-toggle-btn, #mobile-view-toggle { display: none; }
   @media (max-width: 768px) {
     header { padding: 8px 10px; gap: 8px; }
     header h1 { font-size: 14px; width: 100%; }
@@ -136,10 +137,18 @@
     .mode-toggle, .small-btn { font-size: 12px; padding: 6px 10px; }
     .sync-status { order: 3; }
     .header-spacer { display: none; }
+    #more-toggle-btn { display: inline-block; order: 4; font-size: 12px; padding: 6px 10px; }
+    #mobile-view-toggle { display: inline-block; order: 1; font-size: 12px; padding: 6px 10px; width: 100%; margin-bottom: 4px; }
+    .header-extra { display: none; width: 100%; order: 6; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+    .header-extra.open { display: flex; }
     .main { flex-direction: column; }
     #map { flex: none; height: 52vh; width: 100%; }
     .sidebar { width: 100%; flex: 1; border-left: none; border-top: 1px solid var(--border); min-height: 0; }
     .modal { width: 92vw; max-height: 86vh; overflow-y: auto; }
+
+    body.mobile-list-view #map { display: none; }
+    body.mobile-list-view .sidebar { flex: 1; height: auto; }
+    body:not(.mobile-list-view) .sidebar { display: none; }
   }
 
   .modal-overlay {
@@ -180,15 +189,19 @@
       <button class="layer-btn" data-layer="seccions">Seccions censals</button>
     </div>
     <button class="mode-toggle" id="mode-toggle">Mode: afegir problemàtica</button>
-    <button class="small-btn" id="geo-btn">📍 Incidència a la meva ubicació</button>
-    <button class="small-btn" id="categories-btn">Categories</button>
-    <button class="small-btn" id="zones-btn">Zones personalitzades</button>
+    <button class="small-btn" id="mobile-view-toggle">📋 Veure llista</button>
     <div class="header-spacer"></div>
     <div class="sync-status" id="sync-status"><span class="sync-dot"></span> Connectant...</div>
-    <button class="small-btn" id="export-excel-btn">Exportar a Excel</button>
-    <button class="small-btn" id="export-btn">Guardar sessió (.json)</button>
-    <button class="small-btn" id="import-btn">Carregar sessió (.json)</button>
-    <input id="import-file" type="file" accept="application/json" style="display:none" />
+    <button class="small-btn" id="more-toggle-btn">⋯ Més opcions</button>
+    <div class="header-extra" id="header-extra">
+      <button class="small-btn" id="geo-btn">📍 Incidència a la meva ubicació</button>
+      <button class="small-btn" id="categories-btn">Categories</button>
+      <button class="small-btn" id="zones-btn">Zones personalitzades</button>
+      <button class="small-btn" id="export-excel-btn">Exportar a Excel</button>
+      <button class="small-btn" id="export-btn">Guardar sessió (.json)</button>
+      <button class="small-btn" id="import-btn">Carregar sessió (.json)</button>
+      <input id="import-file" type="file" accept="application/json" style="display:none" />
+    </div>
   </header>
   <div class="main">
     <div id="map"></div>
@@ -893,6 +906,15 @@ document.getElementById('import-file').addEventListener('change', (e) => {
   };
   reader.readAsText(file);
   e.target.value = '';
+});
+
+/* ---------- mobile UI toggles (display only, doesn't touch any data) ---------- */
+document.getElementById('mobile-view-toggle').addEventListener('click', () => {
+  const isListView = document.body.classList.toggle('mobile-list-view');
+  document.getElementById('mobile-view-toggle').textContent = isListView ? '🗺️ Veure mapa' : '📋 Veure llista';
+});
+document.getElementById('more-toggle-btn').addEventListener('click', () => {
+  document.getElementById('header-extra').classList.toggle('open');
 });
 
 /* ---------- init ---------- */
