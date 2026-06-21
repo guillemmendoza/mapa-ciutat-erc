@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Mapa de ciutat — Anàlisi territorial</title>
+<title>Sant Feliu, Carrer a Carrer</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
@@ -13,14 +13,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root {
-    --bg: #ffffff; --bg-secondary: #f7f6f3; --text: #1a1a18; --text-secondary: #5f5e5a;
-    --border: rgba(0,0,0,0.12); --border-strong: rgba(0,0,0,0.25); --radius: 10px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #1c1c1a; --bg-secondary: #262624; --text: #f1efe8; --text-secondary: #b4b2a9;
-      --border: rgba(255,255,255,0.15); --border-strong: rgba(255,255,255,0.3);
-    }
+    --bg: #010d25; --bg-secondary: #0c1c3a; --text: #f2f4f8; --text-secondary: #9aa6c0;
+    --border: rgba(255,255,255,0.14); --border-strong: rgba(255,255,255,0.3); --radius: 10px;
+    --accent: #f85838; --accent-text: #ffffff;
   }
   * { box-sizing: border-box; }
   body {
@@ -38,12 +33,12 @@
     border: none; background: transparent; color: var(--text-secondary); font-size: 13px;
     padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 500;
   }
-  .layer-btn.active { background: var(--bg); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
+  .layer-btn.active { background: var(--accent); color: var(--accent-text); box-shadow: none; }
   .mode-toggle {
     border: 1px solid var(--border); background: var(--bg); color: var(--text);
     font-size: 13px; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-weight: 500;
   }
-  .mode-toggle.active { background: #A32D2D; color: #fff; border-color: #791F1F; }
+  .mode-toggle.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
   .header-spacer { flex: 1; }
   .small-btn {
     border: 1px solid var(--border); background: var(--bg); color: var(--text);
@@ -130,13 +125,17 @@
 
   #relocate-banner {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 999px;
+    background: var(--accent); color: var(--accent-text); padding: 10px 16px; border-radius: 999px;
     font-size: 13px; font-weight: 600; z-index: 1100; box-shadow: 0 4px 14px rgba(0,0,0,0.25);
   }
   #relocate-cancel { text-decoration: underline; cursor: pointer; margin-left: 10px; }
 
+  /* ---------- "Opcions avançades" always collapsed by default ---------- */
+  .header-extra { display: none; width: 100%; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .header-extra.open { display: flex; }
+
   /* ---------- responsive (mobile) ---------- */
-  #more-toggle-btn, #mobile-view-toggle { display: none; }
+  #mobile-view-toggle { display: none; }
   @media (max-width: 768px) {
     header { padding: 8px 10px; gap: 8px; }
     header h1 { font-size: 14px; width: 100%; }
@@ -144,10 +143,7 @@
     .mode-toggle, .small-btn { font-size: 12px; padding: 6px 10px; }
     .sync-status { order: 3; }
     .header-spacer { display: none; }
-    #more-toggle-btn { display: inline-block; order: 4; font-size: 12px; padding: 6px 10px; }
     #mobile-view-toggle { display: inline-block; order: 1; font-size: 12px; padding: 6px 10px; width: 100%; margin-bottom: 4px; }
-    .header-extra { display: none; width: 100%; order: 6; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-    .header-extra.open { display: flex; }
     .main { flex-direction: column; }
     #map { flex: none; height: 52vh; width: 100%; }
     .sidebar { width: 100%; flex: 1; border-left: none; border-top: 1px solid var(--border); min-height: 0; }
@@ -187,7 +183,7 @@
     border: 1px solid var(--border); background: var(--bg); color: var(--text);
     padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
   }
-  .modal-actions button.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .modal-actions button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 
   .leaflet-popup-content-wrapper { background: var(--bg); color: var(--text); }
   .leaflet-popup-tip { background: var(--bg); }
@@ -196,7 +192,7 @@
 <body>
 <div class="app">
   <header>
-    <h1>Mapa de ciutat — anàlisi territorial</h1>
+    <h1>Sant Feliu, Carrer a Carrer</h1>
     <div class="layer-group" id="layer-group">
       <button class="layer-btn" data-layer="none">Cap</button>
       <button class="layer-btn" data-layer="districtes">Districtes</button>
@@ -204,13 +200,13 @@
       <button class="layer-btn" data-layer="seccions">Seccions censals</button>
     </div>
     <button class="mode-toggle" id="mode-toggle">Mode: afegir problemàtica</button>
+    <button class="small-btn" id="geo-btn">📍 Incidència a la meva ubicació</button>
+    <button class="small-btn" id="categories-btn">Categories</button>
     <button class="small-btn" id="mobile-view-toggle">📋 Veure llista</button>
     <div class="header-spacer"></div>
     <div class="sync-status" id="sync-status"><span class="sync-dot"></span> Connectant...</div>
-    <button class="small-btn" id="more-toggle-btn">⋯ Més opcions</button>
+    <button class="small-btn" id="more-toggle-btn">⚙️ Opcions avançades</button>
     <div class="header-extra" id="header-extra">
-      <button class="small-btn" id="geo-btn">📍 Incidència a la meva ubicació</button>
-      <button class="small-btn" id="categories-btn">Categories</button>
       <button class="small-btn" id="zones-btn">Zones personalitzades</button>
       <button class="small-btn" id="export-excel-btn">Exportar a Excel</button>
       <button class="small-btn" id="export-btn">Guardar sessió (.json)</button>
