@@ -105,7 +105,7 @@
   .stat-row .stat-bar { display: block; height: 100%; border-radius: 4px; transition: width 0.3s ease; }
   .stat-row .stat-num { width: 24px; text-align: right; flex-shrink: 0; color: var(--text-secondary); }
 
-  .photo-preview { margin-top: 8px; max-width: 100%; border-radius: 8px; display: none; }
+  .photo-preview { margin-top: 8px; width: 100%; max-height: 160px; object-fit: cover; border-radius: 8px; display: none; }
   .upload-hint { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
 
   .modal.wide { width: 380px; }
@@ -127,6 +127,13 @@
   .zone-select-row { display: flex; gap: 6px; }
   .zone-select-row select { flex: 1; }
   .zone-select-row button { flex-shrink: 0; }
+
+  #relocate-banner {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 999px;
+    font-size: 13px; font-weight: 600; z-index: 1100; box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  }
+  #relocate-cancel { text-decoration: underline; cursor: pointer; margin-left: 10px; }
 
   /* ---------- responsive (mobile) ---------- */
   #more-toggle-btn, #mobile-view-toggle { display: none; }
@@ -158,7 +165,15 @@
   .modal-overlay.open { display: flex; }
   .modal {
     background: var(--bg); border-radius: var(--radius); padding: 20px; width: 340px;
-    max-width: 90vw; border: 1px solid var(--border);
+    max-width: 90vw; border: 1px solid var(--border); max-height: 88vh; overflow-y: auto;
+  }
+  .modal.form-modal { width: 620px; }
+  .modal-grid { display: flex; gap: 20px; }
+  .modal-col-main { flex: 1.3; min-width: 0; }
+  .modal-col-photo { flex: 1; min-width: 0; }
+  @media (max-width: 700px) {
+    .modal.form-modal { width: 92vw; }
+    .modal-grid { flex-direction: column; }
   }
   .modal h3 { font-size: 15px; font-weight: 600; margin: 0 0 14px; }
   .modal label { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; margin-top: 10px; }
@@ -223,34 +238,46 @@
 </div>
 
 <div class="modal-overlay" id="modal-overlay">
-  <div class="modal">
+  <div class="modal form-modal">
     <h3 id="modal-title">Nova problemàtica</h3>
-    <label>Títol</label>
-    <input type="text" id="form-title" maxlength="60" placeholder="Ex: Vorera trencada" />
-    <label>Categoria</label>
-    <select id="form-category"></select>
-    <label>Prioritat</label>
-    <select id="form-priority">
-      <option value="alta">Alta</option>
-      <option value="mitja" selected>Mitjana</option>
-      <option value="baixa">Baixa</option>
-    </select>
-    <label>Zona (per defecte: detectada automàticament al mapa)</label>
-    <div class="zone-select-row">
-      <select id="form-zone-override"><option value="">(detecció automàtica)</option></select>
+    <div class="modal-grid">
+      <div class="modal-col-main">
+        <label>Títol</label>
+        <input type="text" id="form-title" maxlength="60" placeholder="Ex: Vorera trencada" />
+        <label>Categoria</label>
+        <select id="form-category"></select>
+        <label>Prioritat</label>
+        <select id="form-priority">
+          <option value="alta">Alta</option>
+          <option value="mitja" selected>Mitjana</option>
+          <option value="baixa">Baixa</option>
+        </select>
+        <label>Zona (per defecte: detectada automàticament al mapa)</label>
+        <div class="zone-select-row">
+          <select id="form-zone-override"><option value="">(detecció automàtica)</option></select>
+        </div>
+        <label>Descripció</label>
+        <textarea id="form-desc" placeholder="Detalls de la problemàtica..."></textarea>
+      </div>
+      <div class="modal-col-photo">
+        <label>Foto (opcional)</label>
+        <input type="file" id="form-photo" accept="image/*" />
+        <img id="form-photo-preview" class="photo-preview" />
+        <p class="upload-hint" id="upload-hint"></p>
+        <button id="form-relocate" class="small-btn" style="display:none;width:100%;margin-top:10px">📍 Canviar ubicació al mapa</button>
+        <button id="form-delete" class="small-btn" style="display:none;width:100%;margin-top:8px;color:#A32D2D">Eliminar aquesta problemàtica</button>
+      </div>
     </div>
-    <label>Descripció</label>
-    <textarea id="form-desc" placeholder="Detalls de la problemàtica..."></textarea>
-    <label>Foto (opcional)</label>
-    <input type="file" id="form-photo" accept="image/*" />
-    <img id="form-photo-preview" class="photo-preview" />
-    <p class="upload-hint" id="upload-hint"></p>
     <div class="modal-actions">
       <button id="form-cancel">Cancel·la</button>
       <button class="primary" id="form-save">Afegir</button>
     </div>
-    <button id="form-delete" class="small-btn" style="display:none;margin-top:8px;width:100%;color:#A32D2D">Eliminar aquesta problemàtica</button>
   </div>
+</div>
+
+<div id="relocate-banner" style="display:none">
+  📍 Clica el mapa per establir la nova ubicació
+  <span id="relocate-cancel">Cancel·la</span>
 </div>
 
 <div class="modal-overlay" id="cat-modal-overlay">
@@ -601,6 +628,7 @@ function openProblemForm(latlng) {
   document.getElementById('modal-title').textContent = 'Nova problemàtica';
   document.getElementById('form-save').textContent = 'Afegir';
   document.getElementById('form-delete').style.display = 'none';
+  document.getElementById('form-relocate').style.display = 'none';
   document.getElementById('form-title').value = '';
   document.getElementById('form-desc').value = '';
   document.getElementById('form-priority').value = 'mitja';
@@ -618,6 +646,7 @@ function openEditForm(p) {
   document.getElementById('modal-title').textContent = 'Editar problemàtica';
   document.getElementById('form-save').textContent = 'Desar canvis';
   document.getElementById('form-delete').style.display = 'block';
+  document.getElementById('form-relocate').style.display = 'block';
   document.getElementById('form-title').value = p.title || '';
   document.getElementById('form-desc').value = p.desc || '';
   document.getElementById('form-priority').value = p.priority || 'mitja';
@@ -631,9 +660,31 @@ function openEditForm(p) {
   document.getElementById('modal-overlay').classList.add('open');
 }
 
+let relocating = false;
 map.on('click', (e) => {
+  if (relocating) {
+    pendingLatLng = e.latlng;
+    relocating = false;
+    map.getContainer().style.cursor = addMode ? 'crosshair' : '';
+    document.getElementById('relocate-banner').style.display = 'none';
+    document.getElementById('modal-overlay').classList.add('open');
+    return;
+  }
   if (!addMode) return;
   openProblemForm(e.latlng);
+});
+
+document.getElementById('form-relocate').addEventListener('click', () => {
+  relocating = true;
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.getElementById('relocate-banner').style.display = 'block';
+  map.getContainer().style.cursor = 'crosshair';
+});
+document.getElementById('relocate-cancel').addEventListener('click', () => {
+  relocating = false;
+  document.getElementById('relocate-banner').style.display = 'none';
+  map.getContainer().style.cursor = addMode ? 'crosshair' : '';
+  document.getElementById('modal-overlay').classList.add('open');
 });
 
 /* ---------- geolocation ---------- */
@@ -710,7 +761,8 @@ document.getElementById('form-save').onclick = async () => {
     }
     if (wasEditingId) {
       await problemsCol.doc(wasEditingId).update({
-        title, category, priority, desc, zoneNames, customZone, photoURL
+        title, category, priority, desc, zoneNames, customZone, photoURL,
+        lat: pendingLatLng.lat, lng: pendingLatLng.lng
       });
     } else {
       await problemsCol.add({
