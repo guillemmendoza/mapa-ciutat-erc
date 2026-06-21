@@ -102,7 +102,7 @@
   .stat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
   .stat-row .stat-label { width: 110px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .stat-row .stat-bar-wrap { flex: 1; background: var(--bg-secondary); border-radius: 4px; height: 8px; overflow: hidden; }
-  .stat-row .stat-bar { height: 100%; border-radius: 4px; }
+  .stat-row .stat-bar { display: block; height: 100%; border-radius: 4px; transition: width 0.3s ease; }
   .stat-row .stat-num { width: 24px; text-align: right; flex-shrink: 0; color: var(--text-secondary); }
 
   .photo-preview { margin-top: 8px; max-width: 100%; border-radius: 8px; display: none; }
