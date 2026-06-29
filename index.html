@@ -307,11 +307,17 @@
       <div class="zone-info" id="zone-info">Clica una zona del mapa per veure-la aquí.</div>
       <div class="tabs">
         <button class="tab-btn active" data-tab="list">Llista</button>
+        <button class="tab-btn" data-tab="resolved">Resoltes</button>
         <button class="tab-btn" data-tab="stats">Estadístiques</button>
       </div>
       <div class="tab-panel active" id="tab-list">
         <h2>Problemàtiques (<span id="problem-count">0</span>)</h2>
         <div id="problem-list"></div>
+      </div>
+      <div class="tab-panel" id="tab-resolved">
+        <h2>Resoltes (<span id="resolved-count">0</span>)</h2>
+        <button class="small-btn" id="toggle-map-resolved-btn" style="width:100%;margin-bottom:10px">👁️ Mostrar les resoltes al mapa</button>
+        <div id="resolved-list"></div>
       </div>
       <div class="tab-panel" id="tab-stats">
         <div id="stats-content"></div>
@@ -1116,10 +1122,12 @@ problemsCol.onSnapshot(snapshot => {
   if (selectedZoneName) updateZoneInfo(selectedZoneName);
 }, () => setSyncStatus(false));
 
+let mapShowResolved = false;
+
 function renderAllMarkers() {
   Object.values(markersById).forEach(m => map.removeLayer(m));
   for (const k in markersById) delete markersById[k];
-  problems.forEach(p => {
+  problems.filter(p => mapShowResolved ? !!p.resolved : !p.resolved).forEach(p => {
     const cat = categoryOf(p.category);
     const radius = priorityRadius[p.priority] || 8;
     const marker = L.circleMarker([p.lat, p.lng], {
@@ -1134,24 +1142,45 @@ function renderAllMarkers() {
   });
 }
 
+document.getElementById('toggle-map-resolved-btn').addEventListener('click', () => {
+  mapShowResolved = !mapShowResolved;
+  const btn = document.getElementById('toggle-map-resolved-btn');
+  btn.textContent = mapShowResolved ? '👁️ Mostrant resoltes (clica per tornar a les obertes)' : '👁️ Mostrar les resoltes al mapa';
+  btn.classList.toggle('active-toggle', mapShowResolved);
+  renderAllMarkers();
+});
+
 async function removeProblem(p) {
+  if (!confirm('Segur que vols eliminar aquesta problemàtica? Aquesta acció no es pot desfer.')) return;
   try { await problemsCol.doc(p.id).delete(); } catch (err) { alert('No s\'ha pogut eliminar: ' + err.message); }
 }
 
+async function toggleResolved(p) {
+  try { await problemsCol.doc(p.id).update({ resolved: !p.resolved }); }
+  catch (err) { alert("No s'ha pogut actualitzar l'estat: " + err.message); }
+}
+
 function renderProblemList() {
-  const listEl = document.getElementById('problem-list');
-  listEl.innerHTML = '';
   let visible = problems;
   if (activeLayerKey !== 'none' && selectedZoneName) {
     visible = problems.filter(p => getZoneLabel(p, activeLayerKey) === selectedZoneName);
   }
-  visible = visible.slice().sort((a, b) => (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1));
-  document.getElementById('problem-count').textContent = visible.length;
-  if (visible.length === 0) {
-    listEl.innerHTML = '<div class="empty-hint">Cap problemàtica registrada encara.</div>';
+  const pending = visible.filter(p => !p.resolved);
+  const resolved = visible.filter(p => p.resolved);
+  renderProblemSubList(pending, 'problem-list', 'problem-count', false);
+  renderProblemSubList(resolved, 'resolved-list', 'resolved-count', true);
+}
+
+function renderProblemSubList(list, listElId, countElId, isResolvedList) {
+  const listEl = document.getElementById(listElId);
+  listEl.innerHTML = '';
+  const sorted = list.slice().sort((a, b) => (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1));
+  document.getElementById(countElId).textContent = sorted.length;
+  if (sorted.length === 0) {
+    listEl.innerHTML = `<div class="empty-hint">${isResolvedList ? 'Cap problemàtica resolta encara.' : 'Cap problemàtica registrada encara.'}</div>`;
     return;
   }
-  visible.forEach(p => {
+  sorted.forEach(p => {
     const cat = categoryOf(p.category);
     const zoneShown = getZoneLabel(p, activeLayerKey);
     const prioBadge = p.priority ? `<span class="priority-badge priority-${p.priority}">${priorityLabels[p.priority]}</span>` : '';
@@ -1174,11 +1203,16 @@ function renderProblemList() {
     edit.className = 'pdelete pedit';
     edit.textContent = 'Editar';
     edit.addEventListener('click', (e) => { e.stopPropagation(); openEditForm(p); });
+    const resolveBtn = document.createElement('span');
+    resolveBtn.className = 'pdelete';
+    resolveBtn.textContent = isResolvedList ? '↩️ Reobrir' : '✅ Marcar com a resolta';
+    resolveBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleResolved(p); });
     const del = document.createElement('span');
     del.className = 'pdelete';
     del.textContent = 'Eliminar';
     del.addEventListener('click', (e) => { e.stopPropagation(); removeProblem(p); });
     card.appendChild(edit);
+    card.appendChild(resolveBtn);
     card.appendChild(del);
     listEl.appendChild(card);
   });
