@@ -191,6 +191,7 @@
     width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
     color: var(--text); padding: 8px 10px; font-size: 13px; font-family: inherit;
   }
+  .modal input[type="text"]:disabled { color: var(--text-secondary); opacity: 0.7; cursor: not-allowed; }
   .modal textarea { resize: vertical; min-height: 60px; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
   .modal-actions button {
@@ -342,6 +343,7 @@
         <textarea id="form-desc" placeholder="Detalls de la problemàtica..."></textarea>
         <label>Creat per</label>
         <input type="text" id="form-createdby" maxlength="40" placeholder="Nom de qui ha fet la incidència" />
+        <p class="upload-hint" id="form-createdby-display" style="display:none"></p>
       </div>
       <div class="modal-col-photo">
         <label>Foto (opcional)</label>
@@ -921,6 +923,21 @@ modeBtn.addEventListener('click', () => {
 let pendingLatLng = null;
 let editingProblemId = null;
 
+function setCreatedByField(value) {
+  const input = document.getElementById('form-createdby');
+  const display = document.getElementById('form-createdby-display');
+  const isAdmin = !!(currentUser && currentUser.admin);
+  input.value = value || '';
+  if (isAdmin) {
+    input.style.display = '';
+    display.style.display = 'none';
+  } else {
+    input.style.display = 'none';
+    display.style.display = 'block';
+    display.textContent = 'Creat per: ' + (value || 'Desconegut');
+  }
+}
+
 function openProblemForm(latlng) {
   editingProblemId = null;
   pendingLatLng = latlng;
@@ -930,7 +947,7 @@ function openProblemForm(latlng) {
   document.getElementById('form-relocate').style.display = 'none';
   document.getElementById('form-title').value = '';
   document.getElementById('form-desc').value = '';
-  document.getElementById('form-createdby').value = currentUser ? currentUser.name : '';
+  setCreatedByField(currentUser ? currentUser.name : '');
   document.getElementById('form-priority').value = 'mitja';
   document.getElementById('form-zone-override').value = '';
   document.getElementById('form-photo').value = '';
@@ -949,7 +966,7 @@ function openEditForm(p) {
   document.getElementById('form-relocate').style.display = 'block';
   document.getElementById('form-title').value = p.title || '';
   document.getElementById('form-desc').value = p.desc || '';
-  document.getElementById('form-createdby').value = p.createdBy || '';
+  setCreatedByField(p.createdBy || '');
   document.getElementById('form-priority').value = p.priority || 'mitja';
   document.getElementById('form-zone-override').value = p.customZone || '';
   document.getElementById('form-photo').value = '';
