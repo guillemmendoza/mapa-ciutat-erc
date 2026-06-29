@@ -210,11 +210,16 @@
   #login-overlay.hidden { display: none; }
   .login-box {
     background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 28px 26px; width: 300px; max-width: 90vw;
+    padding: 28px 26px; width: 300px; max-width: 90vw; text-align: center;
   }
+  .login-icon {
+    width: 56px; height: 56px; border-radius: 50%; background: var(--accent);
+    display: flex; align-items: center; justify-content: center; margin: 0 auto 14px;
+  }
+  .login-icon svg { width: 28px; height: 28px; }
   .login-box h2 { font-size: 17px; margin: 0 0 4px; }
   .login-box p { font-size: 12px; color: var(--text-secondary); margin: 0 0 18px; }
-  .login-box label { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; margin-top: 12px; }
+  .login-box label { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; margin-top: 12px; text-align: left; }
   .login-box select, .login-box input[type="password"] {
     width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
     color: var(--text); padding: 8px 10px; font-size: 13px; font-family: inherit;
@@ -225,12 +230,22 @@
   }
   .login-error { color: #E24B4A; font-size: 12px; margin-top: 8px; display: none; }
 
-  /* ---------- logged-in user badge ---------- */
-  .user-badge {
-    display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary);
+  /* ---------- logged-in user icon + dropdown ---------- */
+  .user-menu { position: relative; }
+  .user-icon-btn {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--accent-text);
+    border: none; cursor: pointer; font-size: 13px; font-weight: 700; display: flex;
+    align-items: center; justify-content: center; flex-shrink: 0;
   }
-  .user-badge .logout-link { text-decoration: underline; cursor: pointer; color: var(--text-secondary); }
-  .user-badge .logout-link:hover { color: var(--text); }
+  .user-dropdown {
+    position: absolute; top: 38px; right: 0; background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 14px; min-width: 160px; z-index: 1200; display: none;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+  }
+  .user-dropdown.open { display: block; }
+  .user-dropdown .udname { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .user-dropdown .ud-action { font-size: 12px; color: var(--text-secondary); cursor: pointer; padding: 4px 0; }
+  .user-dropdown .ud-action:hover { color: var(--text); }
 
   .creator-tag { color: var(--text-secondary); font-size: 11px; margin-top: 2px; }
 </style>
@@ -238,6 +253,9 @@
 <body>
 <div id="login-overlay">
   <div class="login-box">
+    <div class="login-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+    </div>
     <h2>Sant Feliu, Carrer a Carrer</h2>
     <p>Identifica't per continuar.</p>
     <label>Usuari</label>
@@ -262,7 +280,14 @@
     <button class="small-btn" id="categories-btn">Categories</button>
     <button class="small-btn" id="mobile-view-toggle">📋 Veure llista</button>
     <div class="header-spacer"></div>
-    <div class="user-badge" id="user-badge">👤 <span id="user-badge-name"></span> · <span class="logout-link" id="logout-link">Sortir</span></div>
+    <div class="user-menu" id="user-menu">
+      <button class="user-icon-btn" id="user-icon-btn"></button>
+      <div class="user-dropdown" id="user-dropdown">
+        <div class="udname">Connectat com: <span id="user-badge-name"></span></div>
+        <div class="ud-action" id="switch-user-link">Canviar d'usuari</div>
+        <div class="ud-action" id="logout-link">Sortir</div>
+      </div>
+    </div>
     <div class="sync-status" id="sync-status"><span class="sync-dot"></span> Connectant...</div>
     <button class="small-btn" id="more-toggle-btn">⚙️ Opcions avançades</button>
     <div class="header-extra" id="header-extra">
@@ -495,6 +520,8 @@ function setLoggedInUser(user) {
   currentUser = user;
   localStorage.setItem(SESSION_KEY, user.name);
   document.getElementById('user-badge-name').textContent = user.name;
+  document.getElementById('user-icon-btn').textContent = user.name.charAt(0).toUpperCase();
+  document.getElementById('user-dropdown').classList.remove('open');
   hideLogin();
 }
 function tryRestoreSession() {
@@ -520,11 +547,22 @@ function attemptLogin() {
   }
   setLoggedInUser(user);
 }
-document.getElementById('logout-link').addEventListener('click', () => {
+function doLogout() {
   localStorage.removeItem(SESSION_KEY);
   currentUser = null;
+  document.getElementById('user-dropdown').classList.remove('open');
   showLogin();
+}
+document.getElementById('user-icon-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('user-dropdown').classList.toggle('open');
 });
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('user-menu');
+  if (!menu.contains(e.target)) document.getElementById('user-dropdown').classList.remove('open');
+});
+document.getElementById('logout-link').addEventListener('click', doLogout);
+document.getElementById('switch-user-link').addEventListener('click', doLogout);
 
 /* ---------- users management modal ---------- */
 let draftUsers = appUsers.map(u => ({ ...u }));
