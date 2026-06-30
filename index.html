@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
 <style>
   :root {
     --bg: #010d25; --bg-secondary: #0c1c3a; --text: #f2f4f8; --text-secondary: #9aa6c0;
@@ -371,7 +372,7 @@
 </div>
 
 <div id="relocate-banner" style="display:none">
-  📍 Clica el mapa per establir la nova ubicació
+  <span id="relocate-banner-text">📍 Clica el mapa per establir la nova ubicació</span>
   <span id="relocate-cancel">Cancel·la</span>
 </div>
 
@@ -988,7 +989,31 @@ function openEditForm(p) {
 }
 
 let relocating = false;
+let pickingPhotoLocation = false;
+let pendingPhotoFile = null;
+
+function placePhotoFileAndOpenForm(file, latlng) {
+  map.setView(latlng, 18);
+  openProblemForm(latlng);
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  const formPhoto = document.getElementById('form-photo');
+  formPhoto.files = dt.files;
+  const preview = document.getElementById('form-photo-preview');
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+}
+
 map.on('click', (e) => {
+  if (pickingPhotoLocation) {
+    const file = pendingPhotoFile;
+    pickingPhotoLocation = false;
+    pendingPhotoFile = null;
+    map.getContainer().style.cursor = addMode ? 'crosshair' : '';
+    document.getElementById('relocate-banner').style.display = 'none';
+    placePhotoFileAndOpenForm(file, e.latlng);
+    return;
+  }
   if (relocating) {
     pendingLatLng = e.latlng;
     relocating = false;
@@ -1004,14 +1029,18 @@ map.on('click', (e) => {
 document.getElementById('form-relocate').addEventListener('click', () => {
   relocating = true;
   document.getElementById('modal-overlay').classList.remove('open');
+  document.getElementById('relocate-banner-text').textContent = '📍 Clica el mapa per establir la nova ubicació';
   document.getElementById('relocate-banner').style.display = 'block';
   map.getContainer().style.cursor = 'crosshair';
 });
 document.getElementById('relocate-cancel').addEventListener('click', () => {
+  const wasRelocating = relocating;
   relocating = false;
+  pickingPhotoLocation = false;
+  pendingPhotoFile = null;
   document.getElementById('relocate-banner').style.display = 'none';
   map.getContainer().style.cursor = addMode ? 'crosshair' : '';
-  document.getElementById('modal-overlay').classList.add('open');
+  if (wasRelocating) document.getElementById('modal-overlay').classList.add('open');
 });
 
 let activeGeoWatch = null;
@@ -1048,27 +1077,57 @@ function startQuickGeolocation(btn, idleText, onSuccess) {
   );
 }
 
+function getExifLatLng(file) {
+  return new Promise((resolve) => {
+    if (typeof EXIF === 'undefined') { resolve(null); return; }
+    try {
+      EXIF.getData(file, function () {
+        const lat = EXIF.getTag(this, 'GPSLatitude');
+        const latRef = EXIF.getTag(this, 'GPSLatitudeRef');
+        const lon = EXIF.getTag(this, 'GPSLongitude');
+        const lonRef = EXIF.getTag(this, 'GPSLongitudeRef');
+        if (!lat || !lon) { resolve(null); return; }
+        const toDD = (dms, ref) => {
+          let dd = dms[0] + dms[1] / 60 + dms[2] / 3600;
+          if (ref === 'S' || ref === 'W') dd = -dd;
+          return dd;
+        };
+        const latitude = toDD(lat, latRef);
+        const longitude = toDD(lon, lonRef);
+        if (isNaN(latitude) || isNaN(longitude) || (latitude === 0 && longitude === 0)) { resolve(null); return; }
+        resolve(L.latLng(latitude, longitude));
+      });
+    } catch (e) { resolve(null); }
+  });
+}
+
 document.getElementById('photo-quick-btn').addEventListener('click', () => {
   if (activeGeoWatch !== null) { startQuickGeolocation(document.getElementById('photo-quick-btn'), '', () => {}); return; }
   document.getElementById('photo-quick-input').click();
 });
-document.getElementById('photo-quick-input').addEventListener('change', (e) => {
+document.getElementById('photo-quick-input').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   const btn = document.getElementById('photo-quick-btn');
-  startQuickGeolocation(btn, '📷 Incidència des de fotografia', (pos) => {
-    const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
-    map.setView(latlng, 18);
-    openProblemForm(latlng);
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    const formPhoto = document.getElementById('form-photo');
-    formPhoto.files = dt.files;
-    const preview = document.getElementById('form-photo-preview');
-    preview.src = URL.createObjectURL(file);
-    preview.style.display = 'block';
-    e.target.value = '';
-  });
+  const idleText = '📷 Incidència des de fotografia';
+  e.target.value = '';
+
+  btn.disabled = true;
+  btn.textContent = '📷 Llegint ubicació de la foto...';
+  const exifLatLng = await getExifLatLng(file);
+  btn.disabled = false;
+  btn.textContent = idleText;
+
+  if (exifLatLng) {
+    placePhotoFileAndOpenForm(file, exifLatLng);
+    return;
+  }
+
+  pendingPhotoFile = file;
+  pickingPhotoLocation = true;
+  document.getElementById('relocate-banner-text').textContent = '📍 Aquesta foto no porta ubicació. Clica el mapa on vols col·locar la incidència.';
+  document.getElementById('relocate-banner').style.display = 'block';
+  map.getContainer().style.cursor = 'crosshair';
 });
 
 document.getElementById('geo-btn').addEventListener('click', () => {
