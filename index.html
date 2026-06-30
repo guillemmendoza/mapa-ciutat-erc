@@ -46,6 +46,7 @@
   }
   .small-btn:hover { background: var(--bg-secondary); }
   .small-btn.active-toggle { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .small-btn.geo-btn-busy { background: #854F0B; color: #fff; border-color: #854F0B; cursor: pointer; }
   .main { display: flex; flex: 1; min-height: 0; }
   #map { flex: 1; height: 100%; background: #111; }
   .sidebar {
@@ -1013,63 +1014,70 @@ document.getElementById('relocate-cancel').addEventListener('click', () => {
   document.getElementById('modal-overlay').classList.add('open');
 });
 
+let activeGeoWatch = null;
+
+function startQuickGeolocation(btn, idleText, onSuccess) {
+  if (activeGeoWatch !== null) {
+    navigator.geolocation.clearWatch(activeGeoWatch);
+    activeGeoWatch = null;
+    document.querySelectorAll('.geo-btn-busy').forEach(b => {
+      b.classList.remove('geo-btn-busy');
+      b.disabled = false;
+      b.textContent = b.dataset.idleText || b.textContent;
+    });
+    return;
+  }
+  if (!navigator.geolocation) { alert('Aquest navegador no permet obtenir la ubicació.'); return; }
+  btn.dataset.idleText = idleText;
+  btn.classList.add('geo-btn-busy');
+  btn.textContent = '⏳ Obtenint ubicació... (torna a clicar per cancel·lar)';
+  let done = false;
+  const finish = (fn) => {
+    if (done) return;
+    done = true;
+    if (activeGeoWatch !== null) { navigator.geolocation.clearWatch(activeGeoWatch); activeGeoWatch = null; }
+    btn.classList.remove('geo-btn-busy');
+    btn.disabled = false;
+    btn.textContent = idleText;
+    fn();
+  };
+  activeGeoWatch = navigator.geolocation.watchPosition(
+    (pos) => finish(() => onSuccess(pos)),
+    (err) => finish(() => alert("No s'ha pogut obtenir la ubicació: " + err.message)),
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+  );
+}
+
 document.getElementById('photo-quick-btn').addEventListener('click', () => {
+  if (activeGeoWatch !== null) { startQuickGeolocation(document.getElementById('photo-quick-btn'), '', () => {}); return; }
   document.getElementById('photo-quick-input').click();
 });
 document.getElementById('photo-quick-input').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  if (!navigator.geolocation) { alert('Aquest navegador no permet obtenir la ubicació.'); return; }
   const btn = document.getElementById('photo-quick-btn');
-  btn.disabled = true;
-  btn.textContent = 'Obtenint ubicació...';
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
-      map.setView(latlng, 18);
-      openProblemForm(latlng);
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      const formPhoto = document.getElementById('form-photo');
-      formPhoto.files = dt.files;
-      const preview = document.getElementById('form-photo-preview');
-      preview.src = URL.createObjectURL(file);
-      preview.style.display = 'block';
-      btn.disabled = false;
-      btn.textContent = '📷 Incidència des de fotografia';
-      e.target.value = '';
-    },
-    (err) => {
-      btn.disabled = false;
-      btn.textContent = '📷 Incidència des de fotografia';
-      e.target.value = '';
-      alert("No s'ha pogut obtenir la ubicació: " + err.message);
-    },
-    { enableHighAccuracy: true, timeout: 10000 }
-  );
+  startQuickGeolocation(btn, '📷 Incidència des de fotografia', (pos) => {
+    const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+    map.setView(latlng, 18);
+    openProblemForm(latlng);
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const formPhoto = document.getElementById('form-photo');
+    formPhoto.files = dt.files;
+    const preview = document.getElementById('form-photo-preview');
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = 'block';
+    e.target.value = '';
+  });
 });
 
-
 document.getElementById('geo-btn').addEventListener('click', () => {
-  if (!navigator.geolocation) { alert('Aquest navegador no permet obtenir la ubicació.'); return; }
   const btn = document.getElementById('geo-btn');
-  btn.disabled = true;
-  btn.textContent = 'Obtenint ubicació...';
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
-      map.setView(latlng, 18);
-      btn.disabled = false;
-      btn.textContent = '📍 Incidència a la meva ubicació';
-      openProblemForm(latlng);
-    },
-    (err) => {
-      btn.disabled = false;
-      btn.textContent = '📍 Incidència a la meva ubicació';
-      alert("No s'ha pogut obtenir la ubicació: " + err.message);
-    },
-    { enableHighAccuracy: true, timeout: 10000 }
-  );
+  startQuickGeolocation(btn, '📍 Incidència a la meva ubicació', (pos) => {
+    const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+    map.setView(latlng, 18);
+    openProblemForm(latlng);
+  });
 });
 
 document.getElementById('form-photo').addEventListener('change', (e) => {
