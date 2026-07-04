@@ -70,8 +70,12 @@
   .problem-card {
     border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px;
     margin-bottom: 10px; font-size: 13px; cursor: pointer;
+    border-left: 4px solid transparent;
   }
   .problem-card:hover { background: var(--bg-secondary); }
+  .problem-card.prio-alta  { border-left-color: #A32D2D; }
+  .problem-card.prio-mitja { border-left-color: #854F0B; }
+  .problem-card.prio-baixa { border-left-color: #3B6D11; }
   .problem-card .ptitle { font-weight: 600; margin-bottom: 2px; }
   .problem-card .pcat {
     display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px;
@@ -101,7 +105,17 @@
 
   .problem-card img { width: 100%; border-radius: 6px; margin-top: 6px; display: block; }
 
-  /* filtres */
+  /* cerca */
+  .search-bar {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: 6px 10px;
+  }
+  .search-bar input {
+    flex: 1; border: none; background: transparent; color: var(--text);
+    font-size: 12px; font-family: inherit; outline: none;
+  }
+  .search-bar span { color: var(--text-secondary); font-size: 13px; cursor: pointer; }
+  .search-bar span:hover { color: var(--text); }
   .filter-bar { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
   .filter-bar select {
     width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
@@ -345,10 +359,15 @@
         <button class="tab-btn" data-tab="stats">Estadístiques</button>
       </div>
       <div class="tab-panel active" id="tab-list">
+        <div class="search-bar">
+          <span>🔍</span>
+          <input type="text" id="search-input" placeholder="Cerca per títol o descripció..." />
+          <span id="search-clear" style="display:none">✕</span>
+        </div>
         <div class="filter-bar">
           <select id="filter-cat"><option value="">Totes les categories</option></select>
           <select id="filter-zone"><option value="">Tots els barris</option></select>
-          <button id="filter-clear">✕</button>
+          <button id="filter-clear">✕ Netejar filtres</button>
         </div>
         <h2>Problemàtiques (<span id="problem-count">0</span>)</h2>
         <div id="problem-list"></div>
@@ -792,8 +811,27 @@ function updateZoneInfo(name, electionEntry) {
       : 'Clica una zona del mapa per veure-la aquí.';
     return;
   }
-  const count = problems.filter(p => getZoneLabel(p, activeLayerKey) === name).length;
-  let html = `<div class="zname">${name}</div><div class="zcount">${count} ${count === 1 ? 'problemàtica' : 'problemàtiques'}</div>`;
+  const zoneProblems = problems.filter(p => getZoneLabel(p, activeLayerKey) === name);
+  const total = zoneProblems.length;
+  const obertes = zoneProblems.filter(p => !p.resolved).length;
+  const resoltes = zoneProblems.filter(p => p.resolved).length;
+
+  const byCat = {};
+  zoneProblems.filter(p => !p.resolved).forEach(p => {
+    byCat[p.category] = (byCat[p.category] || 0) + 1;
+  });
+  const catBreakdown = Object.entries(byCat)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([key, n]) => {
+      const cat = categoryOf(key);
+      return `<span style="display:inline-block;background:${cat.color};color:${readableTextColor(cat.color)};font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;margin:2px 2px 0 0">${cat.label} ${n}</span>`;
+    }).join('');
+
+  let html = `<div class="zname">${name}</div>`;
+  html += `<div class="zcount">${obertes} oberta${obertes !== 1 ? 's' : ''}${resoltes > 0 ? ` · ${resoltes} resolta${resoltes !== 1 ? 's' : ''}` : ''}</div>`;
+  if (catBreakdown) html += `<div style="margin-top:6px">${catBreakdown}</div>`;
+
   if (showElectionResults && electionEntry && electionEntry.parties && electionEntry.parties.length) {
     html += '<div class="election-breakdown">';
     electionEntry.parties.slice(0, 5).forEach(p => {
@@ -1259,6 +1297,10 @@ function isFiltered(p) {
       if ((p.zoneNames && p.zoneNames['barris']) !== filterZone) return false;
     }
   }
+  if (filterSearch) {
+    const hay = ((p.title || '') + ' ' + (p.desc || '')).toLowerCase();
+    if (!hay.includes(filterSearch)) return false;
+  }
   return true;
 }
 
@@ -1319,6 +1361,9 @@ function renderProblemList() {
       visible = visible.filter(p => (p.zoneNames && p.zoneNames['barris']) === filterZone);
     }
   }
+  if (filterSearch) {
+    visible = visible.filter(p => ((p.title || '') + ' ' + (p.desc || '')).toLowerCase().includes(filterSearch));
+  }
   const pending = visible.filter(p => !p.resolved);
   const resolved = visible.filter(p => p.resolved);
   renderProblemSubList(pending, 'problem-list', 'problem-count', false);
@@ -1339,7 +1384,7 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
     const zoneShown = getZoneLabel(p, activeLayerKey);
     const prioBadge = p.priority ? `<span class="priority-badge priority-${p.priority}">${priorityLabels[p.priority]}</span>` : '';
     const card = document.createElement('div');
-    card.className = 'problem-card';
+    card.className = `problem-card${p.priority ? ' prio-' + p.priority : ''}`;
     card.innerHTML = `
       <div class="ptitle">${p.title} ${prioBadge}</div>
       <span class="pcat" style="background:${cat.color};color:${readableTextColor(cat.color)}">${cat.label}</span>
@@ -1376,6 +1421,19 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
 /* ---------- filtres ---------- */
 let filterCat = '';
 let filterZone = '';
+let filterSearch = '';
+
+document.getElementById('search-input').addEventListener('input', (e) => {
+  filterSearch = e.target.value.toLowerCase();
+  document.getElementById('search-clear').style.display = filterSearch ? 'inline' : 'none';
+  renderProblemList(); renderAllMarkers();
+});
+document.getElementById('search-clear').addEventListener('click', () => {
+  filterSearch = '';
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-clear').style.display = 'none';
+  renderProblemList(); renderAllMarkers();
+});
 
 function populateFilters() {
   const catSel = document.getElementById('filter-cat');
