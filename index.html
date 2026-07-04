@@ -1087,8 +1087,16 @@ function getExifLatLng(file) {
         const lon = EXIF.getTag(this, 'GPSLongitude');
         const lonRef = EXIF.getTag(this, 'GPSLongitudeRef');
         if (!lat || !lon) { resolve(null); return; }
+        const toNum = (v) => {
+          if (typeof v === 'number') return v;
+          if (v && typeof v === 'object' && 'numerator' in v) return v.numerator / v.denominator;
+          return parseFloat(v);
+        };
         const toDD = (dms, ref) => {
-          let dd = dms[0] + dms[1] / 60 + dms[2] / 3600;
+          const d = toNum(dms[0]);
+          const m = toNum(dms[1]);
+          const s = toNum(dms[2]);
+          let dd = d + m / 60 + s / 3600;
           if (ref === 'S' || ref === 'W') dd = -dd;
           return dd;
         };
