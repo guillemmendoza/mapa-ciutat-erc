@@ -102,14 +102,14 @@
   .problem-card img { width: 100%; border-radius: 6px; margin-top: 6px; display: block; }
 
   /* filtres */
-  .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; }
+  .filter-bar { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
   .filter-bar select {
-    flex: 1; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+    width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
     color: var(--text); padding: 6px 8px; font-size: 12px; font-family: inherit;
   }
   .filter-bar button {
     border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
-    color: var(--text-secondary); padding: 6px 10px; font-size: 12px; cursor: pointer; white-space: nowrap;
+    color: var(--text-secondary); padding: 6px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; align-self: flex-start;
   }
   .filter-bar button:hover { color: var(--text); }
 
