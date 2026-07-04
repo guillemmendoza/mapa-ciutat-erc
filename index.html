@@ -1252,7 +1252,13 @@ let mapShowResolved = false;
 
 function isFiltered(p) {
   if (filterCat && p.category !== filterCat) return false;
-  if (filterZone && getZoneLabel(p, 'barris') !== filterZone) return false;
+  if (filterZone) {
+    if (filterZone.startsWith('__custom__')) {
+      if (p.customZone !== filterZone.replace('__custom__', '')) return false;
+    } else {
+      if ((p.zoneNames && p.zoneNames['barris']) !== filterZone) return false;
+    }
+  }
   return true;
 }
 
@@ -1305,7 +1311,14 @@ function renderProblemList() {
     visible = visible.filter(p => getZoneLabel(p, activeLayerKey) === selectedZoneName);
   }
   if (filterCat) visible = visible.filter(p => p.category === filterCat);
-  if (filterZone) visible = visible.filter(p => getZoneLabel(p, 'barris') === filterZone);
+  if (filterZone) {
+    if (filterZone.startsWith('__custom__')) {
+      const customName = filterZone.replace('__custom__', '');
+      visible = visible.filter(p => p.customZone === customName);
+    } else {
+      visible = visible.filter(p => (p.zoneNames && p.zoneNames['barris']) === filterZone);
+    }
+  }
   const pending = visible.filter(p => !p.resolved);
   const resolved = visible.filter(p => p.resolved);
   renderProblemSubList(pending, 'problem-list', 'problem-count', false);
@@ -1377,13 +1390,32 @@ function populateFilters() {
 
   const zoneSel = document.getElementById('filter-zone');
   const prevZone = zoneSel.value;
-  zoneSel.innerHTML = '<option value="">Tots els barris</option>';
-  const zones = [...new Set(problems.map(p => getZoneLabel(p, 'barris')).filter(Boolean))].sort();
-  zones.forEach(z => {
-    const opt = document.createElement('option');
-    opt.value = z; opt.textContent = z;
-    zoneSel.appendChild(opt);
-  });
+  zoneSel.innerHTML = '<option value="">Totes les zones</option>';
+
+  const officialZones = [...new Set(problems.map(p => p.zoneNames && p.zoneNames['barris']).filter(Boolean))].sort();
+  if (officialZones.length) {
+    const grpOfficial = document.createElement('optgroup');
+    grpOfficial.label = 'Barris';
+    officialZones.forEach(z => {
+      const opt = document.createElement('option');
+      opt.value = z; opt.textContent = z;
+      grpOfficial.appendChild(opt);
+    });
+    zoneSel.appendChild(grpOfficial);
+  }
+
+  const usedCustom = [...new Set(problems.map(p => p.customZone).filter(Boolean))].sort();
+  if (usedCustom.length) {
+    const grpCustom = document.createElement('optgroup');
+    grpCustom.label = 'Zones personalitzades';
+    usedCustom.forEach(z => {
+      const opt = document.createElement('option');
+      opt.value = '__custom__' + z; opt.textContent = z;
+      grpCustom.appendChild(opt);
+    });
+    zoneSel.appendChild(grpCustom);
+  }
+
   if (prevZone) zoneSel.value = prevZone;
 }
 
