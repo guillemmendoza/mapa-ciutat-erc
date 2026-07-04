@@ -1250,14 +1250,26 @@ problemsCol.onSnapshot(snapshot => {
 
 let mapShowResolved = false;
 
+function isFiltered(p) {
+  if (filterCat && p.category !== filterCat) return false;
+  if (filterZone && getZoneLabel(p, 'barris') !== filterZone) return false;
+  return true;
+}
+
 function renderAllMarkers() {
   Object.values(markersById).forEach(m => map.removeLayer(m));
   for (const k in markersById) delete markersById[k];
+  const hasFilter = !!(filterCat || filterZone);
   problems.filter(p => mapShowResolved ? !!p.resolved : !p.resolved).forEach(p => {
     const cat = categoryOf(p.category);
     const radius = priorityRadius[p.priority] || 8;
+    const matched = !hasFilter || isFiltered(p);
     const marker = L.circleMarker([p.lat, p.lng], {
-      radius, color: '#ffffff', weight: 2, fillColor: cat.color, fillOpacity: 1
+      radius,
+      color: matched ? '#ffffff' : 'transparent',
+      weight: matched ? 2 : 0,
+      fillColor: matched ? cat.color : '#555555',
+      fillOpacity: matched ? 1 : 0.25
     }).addTo(map);
     const zoneShown = getZoneLabel(p, activeLayerKey);
     const prioBadge = p.priority ? `<span class="priority-badge priority-${p.priority}">${priorityLabels[p.priority]}</span>` : '';
@@ -1375,13 +1387,14 @@ function populateFilters() {
   if (prevZone) zoneSel.value = prevZone;
 }
 
-document.getElementById('filter-cat').addEventListener('change', (e) => { filterCat = e.target.value; renderProblemList(); });
-document.getElementById('filter-zone').addEventListener('change', (e) => { filterZone = e.target.value; renderProblemList(); });
+document.getElementById('filter-cat').addEventListener('change', (e) => { filterCat = e.target.value; renderProblemList(); renderAllMarkers(); });
+document.getElementById('filter-zone').addEventListener('change', (e) => { filterZone = e.target.value; renderProblemList(); renderAllMarkers(); });
 document.getElementById('filter-clear').addEventListener('click', () => {
   filterCat = ''; filterZone = '';
   document.getElementById('filter-cat').value = '';
   document.getElementById('filter-zone').value = '';
   renderProblemList();
+  renderAllMarkers();
 });
 
 async function addComment(problemId, text) {
