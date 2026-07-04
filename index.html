@@ -101,6 +101,36 @@
 
   .problem-card img { width: 100%; border-radius: 6px; margin-top: 6px; display: block; }
 
+  /* filtres */
+  .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; }
+  .filter-bar select {
+    flex: 1; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+    color: var(--text); padding: 6px 8px; font-size: 12px; font-family: inherit;
+  }
+  .filter-bar button {
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+    color: var(--text-secondary); padding: 6px 10px; font-size: 12px; cursor: pointer; white-space: nowrap;
+  }
+  .filter-bar button:hover { color: var(--text); }
+
+  /* comentaris */
+  .comments-section { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
+  .comments-toggle { font-size: 11px; color: var(--text-secondary); cursor: pointer; display: inline-block; margin-bottom: 6px; }
+  .comments-toggle:hover { color: var(--text); }
+  .comments-list { margin-bottom: 6px; }
+  .comment-item { font-size: 11px; margin-bottom: 5px; }
+  .comment-meta { color: var(--text-secondary); margin-bottom: 1px; }
+  .comment-text { color: var(--text); }
+  .comment-add { display: flex; gap: 4px; margin-top: 4px; }
+  .comment-add input {
+    flex: 1; border: 1px solid var(--border); border-radius: 6px; background: var(--bg);
+    color: var(--text); padding: 5px 8px; font-size: 11px; font-family: inherit;
+  }
+  .comment-add button {
+    border: none; background: var(--accent); color: var(--accent-text);
+    border-radius: 6px; padding: 5px 10px; font-size: 11px; cursor: pointer; white-space: nowrap;
+  }
+
   .stat-block { margin-bottom: 18px; }
   .stat-block h3 { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.03em; }
   .stat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
@@ -315,6 +345,11 @@
         <button class="tab-btn" data-tab="stats">Estadístiques</button>
       </div>
       <div class="tab-panel active" id="tab-list">
+        <div class="filter-bar">
+          <select id="filter-cat"><option value="">Totes les categories</option></select>
+          <select id="filter-zone"><option value="">Tots els barris</option></select>
+          <button id="filter-clear">✕</button>
+        </div>
         <h2>Problemàtiques (<span id="problem-count">0</span>)</h2>
         <div id="problem-list"></div>
       </div>
@@ -1252,10 +1287,13 @@ async function toggleResolved(p) {
 }
 
 function renderProblemList() {
+  populateFilters();
   let visible = problems;
   if (activeLayerKey !== 'none' && selectedZoneName) {
-    visible = problems.filter(p => getZoneLabel(p, activeLayerKey) === selectedZoneName);
+    visible = visible.filter(p => getZoneLabel(p, activeLayerKey) === selectedZoneName);
   }
+  if (filterCat) visible = visible.filter(p => p.category === filterCat);
+  if (filterZone) visible = visible.filter(p => getZoneLabel(p, 'barris') === filterZone);
   const pending = visible.filter(p => !p.resolved);
   const resolved = visible.filter(p => p.resolved);
   renderProblemSubList(pending, 'problem-list', 'problem-count', false);
@@ -1305,11 +1343,114 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
     card.appendChild(edit);
     card.appendChild(resolveBtn);
     card.appendChild(del);
+    renderComments(p, card);
     listEl.appendChild(card);
   });
 }
 
-/* ---------- statistics ---------- */
+/* ---------- filtres ---------- */
+let filterCat = '';
+let filterZone = '';
+
+function populateFilters() {
+  const catSel = document.getElementById('filter-cat');
+  const prevCat = catSel.value;
+  catSel.innerHTML = '<option value="">Totes les categories</option>';
+  categories.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.key; opt.textContent = c.label;
+    catSel.appendChild(opt);
+  });
+  if (prevCat) catSel.value = prevCat;
+
+  const zoneSel = document.getElementById('filter-zone');
+  const prevZone = zoneSel.value;
+  zoneSel.innerHTML = '<option value="">Tots els barris</option>';
+  const zones = [...new Set(problems.map(p => getZoneLabel(p, 'barris')).filter(Boolean))].sort();
+  zones.forEach(z => {
+    const opt = document.createElement('option');
+    opt.value = z; opt.textContent = z;
+    zoneSel.appendChild(opt);
+  });
+  if (prevZone) zoneSel.value = prevZone;
+}
+
+document.getElementById('filter-cat').addEventListener('change', (e) => { filterCat = e.target.value; renderProblemList(); });
+document.getElementById('filter-zone').addEventListener('change', (e) => { filterZone = e.target.value; renderProblemList(); });
+document.getElementById('filter-clear').addEventListener('click', () => {
+  filterCat = ''; filterZone = '';
+  document.getElementById('filter-cat').value = '';
+  document.getElementById('filter-zone').value = '';
+  renderProblemList();
+});
+
+async function addComment(problemId, text) {
+  if (!text.trim()) return;
+  const comment = {
+    text: text.trim(),
+    author: currentUser ? currentUser.name : 'Desconegut',
+    date: new Date().toLocaleDateString('ca-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  };
+  const p = problems.find(p => p.id === problemId);
+  const comments = Array.isArray(p.comments) ? [...p.comments, comment] : [comment];
+  await problemsCol.doc(problemId).update({ comments });
+}
+
+function renderComments(p, card) {
+  const comments = Array.isArray(p.comments) ? p.comments : [];
+  const section = document.createElement('div');
+  section.className = 'comments-section';
+
+  const toggle = document.createElement('span');
+  toggle.className = 'comments-toggle';
+  toggle.textContent = comments.length > 0 ? `💬 ${comments.length} nota${comments.length > 1 ? 'es' : ''}` : '💬 Afegir nota';
+  section.appendChild(toggle);
+
+  const body = document.createElement('div');
+  body.style.display = 'none';
+
+  if (comments.length > 0) {
+    const list = document.createElement('div');
+    list.className = 'comments-list';
+    comments.forEach(c => {
+      const item = document.createElement('div');
+      item.className = 'comment-item';
+      item.innerHTML = `<div class="comment-meta">${c.author} · ${c.date}</div><div class="comment-text">${c.text}</div>`;
+      list.appendChild(item);
+    });
+    body.appendChild(list);
+  }
+
+  const addRow = document.createElement('div');
+  addRow.className = 'comment-add';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Escriu una nota...';
+  input.maxLength = 300;
+  const btn = document.createElement('button');
+  btn.textContent = 'Afegir';
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (!input.value.trim()) return;
+    btn.disabled = true;
+    await addComment(p.id, input.value);
+    input.value = '';
+    btn.disabled = false;
+  });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); btn.click(); } });
+  addRow.appendChild(input);
+  addRow.appendChild(btn);
+  body.appendChild(addRow);
+
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    body.style.display = body.style.display === 'none' ? 'block' : 'none';
+    if (body.style.display === 'block') input.focus();
+  });
+  section.appendChild(body);
+  card.appendChild(section);
+}
+
 function renderStats() {
   const el = document.getElementById('stats-content');
   if (problems.length === 0) {
