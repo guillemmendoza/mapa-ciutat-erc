@@ -297,6 +297,61 @@
   .user-dropdown .ud-action:hover { color: var(--text); }
 
   .creator-tag { color: var(--text-secondary); font-size: 11px; margin-top: 2px; }
+
+  /* list header amb xip */
+  .list-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .list-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .count-chip {
+    font-size: 11px; font-weight: 700; background: var(--bg-secondary);
+    border: 1px solid var(--border); color: var(--text-secondary);
+    padding: 1px 8px; border-radius: 999px; min-width: 24px; text-align: center;
+  }
+
+  /* transicions */
+  .problem-card { transition: background 0.15s ease, box-shadow 0.15s ease; }
+  .problem-card:hover { background: var(--bg-secondary); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .tab-btn { transition: background 0.15s ease, color 0.15s ease; }
+  .layer-btn { transition: background 0.15s ease, color 0.15s ease; }
+  .small-btn { transition: background 0.15s ease; }
+  .mode-toggle { transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+
+  /* millora zona info */
+  .zone-info {
+    background: var(--bg-secondary); border-radius: var(--radius); padding: 12px 14px;
+    font-size: 13px; margin-bottom: 14px; border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+  }
+
+  /* millora search-bar focus */
+  .search-bar:focus-within {
+    border-color: var(--accent); box-shadow: 0 0 0 2px rgba(248,88,56,0.15);
+  }
+
+  /* millora modal inputs focus */
+  .modal input[type="text"]:focus, .modal textarea:focus, .modal select:focus,
+  .login-box input:focus, .login-box select:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(248,88,56,0.15);
+  }
+
+  /* separador de seccions al sidebar */
+  .sidebar-section { padding-top: 12px; border-top: 1px solid var(--border); margin-top: 4px; }
+
+  /* millora botons de targeta */
+  .problem-card .pdelete {
+    margin-top: 8px; margin-right: 6px; font-size: 11px; font-weight: 500; color: var(--text-secondary);
+    background: transparent; border: 1px solid var(--border); border-radius: 6px;
+    padding: 3px 9px; display: inline-block; cursor: pointer; transition: all 0.12s;
+  }
+  .problem-card .pdelete:hover { color: var(--text); background: var(--bg-secondary); border-color: var(--border-strong); }
+
+  /* scrollbar discreta */
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .sidebar::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 </style>
 </head>
 <body>
@@ -324,11 +379,10 @@
       <button class="layer-btn active" data-layer="barris">Barris</button>
       <button class="layer-btn" data-layer="seccions">Seccions censals</button>
     </div>
-    <button class="mode-toggle" id="mode-toggle">Mode: afegir problemàtica</button>
+    <button class="mode-toggle" id="mode-toggle">+ Afegir</button>
     <button class="small-btn" id="geo-btn">📍 Incidència a la meva ubicació</button>
     <button class="small-btn" id="photo-quick-btn">📷 Incidència des de fotografia</button>
     <input id="photo-quick-input" type="file" accept="image/*" multiple style="display:none" />
-    <button class="small-btn" id="categories-btn">Categories</button>
     <button class="small-btn" id="mobile-view-toggle">📋 Veure llista</button>
     <div class="header-spacer"></div>
     <div class="user-menu" id="user-menu">
@@ -343,6 +397,7 @@
     <button class="small-btn" id="more-toggle-btn">⚙️ Opcions avançades</button>
     <div class="header-extra" id="header-extra">
       <button class="small-btn" id="elections-btn">🗳️ Resultats electorals 2023</button>
+      <button class="small-btn" id="categories-btn">🏷️ Categories</button>
       <button class="small-btn" id="heatmap-btn">🌡️ Mapa de calor</button>
       <button class="small-btn" id="zones-btn">Zones personalitzades</button>
       <button class="small-btn" id="users-btn">👤 Usuaris</button>
@@ -356,7 +411,7 @@
   <div class="main">
     <div id="map"></div>
     <div class="sidebar">
-      <div class="zone-info" id="zone-info">Clica una zona del mapa per veure-la aquí.</div>
+      <div class="zone-info" id="zone-info">Selecciona una divisió territorial per veure-hi informació de zona.</div>
       <div class="tabs">
         <button class="tab-btn active" data-tab="list">Llista</button>
         <button class="tab-btn" data-tab="resolved">Resoltes</button>
@@ -373,11 +428,11 @@
           <select id="filter-zone"><option value="">Tots els barris</option></select>
           <button id="filter-clear">✕ Netejar filtres</button>
         </div>
-        <h2>Problemàtiques (<span id="problem-count">0</span>)</h2>
+        <div class="list-header"><span class="list-title">Obertes</span><span class="count-chip" id="problem-count">0</span></div>
         <div id="problem-list"></div>
       </div>
       <div class="tab-panel" id="tab-resolved">
-        <h2>Resoltes (<span id="resolved-count">0</span>)</h2>
+        <div class="list-header"><span class="list-title">Resoltes</span><span class="count-chip" id="resolved-count">0</span></div>
         <button class="small-btn" id="toggle-map-resolved-btn" style="width:100%;margin-bottom:10px">👁️ Mostrar les resoltes al mapa</button>
         <div id="resolved-list"></div>
       </div>
@@ -1406,28 +1461,19 @@ async function toggleResolved(p) {
   catch (err) { alert("No s'ha pogut actualitzar l'estat: " + err.message); }
 }
 
-function renderProblemList() {
-  populateFilters();
+function getVisibleProblems() {
   let visible = problems;
   if (activeLayerKey !== 'none' && selectedZoneName) {
     visible = visible.filter(p => getZoneLabel(p, activeLayerKey) === selectedZoneName);
   }
-  if (filterCat) visible = visible.filter(p => p.category === filterCat);
-  if (filterZone) {
-    if (filterZone.startsWith('__custom__')) {
-      const customName = filterZone.replace('__custom__', '');
-      visible = visible.filter(p => p.customZone === customName);
-    } else {
-      visible = visible.filter(p => (p.zoneNames && p.zoneNames['barris']) === filterZone);
-    }
-  }
-  if (filterSearch) {
-    visible = visible.filter(p => ((p.title || '') + ' ' + (p.desc || '')).toLowerCase().includes(filterSearch));
-  }
-  const pending = visible.filter(p => !p.resolved);
-  const resolved = visible.filter(p => p.resolved);
-  renderProblemSubList(pending, 'problem-list', 'problem-count', false);
-  renderProblemSubList(resolved, 'resolved-list', 'resolved-count', true);
+  return visible.filter(p => isFiltered(p));
+}
+
+function renderProblemList() {
+  populateFilters();
+  const visible = getVisibleProblems();
+  renderProblemSubList(visible.filter(p => !p.resolved), 'problem-list', 'problem-count', false);
+  renderProblemSubList(visible.filter(p => p.resolved), 'resolved-list', 'resolved-count', true);
 }
 
 function renderProblemSubList(list, listElId, countElId, isResolvedList) {
@@ -1757,19 +1803,7 @@ document.getElementById('export-excel-btn').onclick = () => {
   if (problems.length === 0) { alert('Encara no hi ha cap problemàtica per exportar.'); return; }
 
   const hasFilter = !!(filterCat || filterZone || filterSearch || (activeLayerKey !== 'none' && selectedZoneName));
-
-  let visible = problems;
-  if (activeLayerKey !== 'none' && selectedZoneName) visible = visible.filter(p => getZoneLabel(p, activeLayerKey) === selectedZoneName);
-  if (filterCat) visible = visible.filter(p => p.category === filterCat);
-  if (filterZone) {
-    if (filterZone.startsWith('__custom__')) {
-      const customName = filterZone.replace('__custom__', '');
-      visible = visible.filter(p => p.customZone === customName);
-    } else {
-      visible = visible.filter(p => (p.zoneNames && p.zoneNames['barris']) === filterZone);
-    }
-  }
-  if (filterSearch) visible = visible.filter(p => ((p.title||'')+(p.desc||'')).toLowerCase().includes(filterSearch));
+  const visible = getVisibleProblems();
 
   const toRow = p => ({
     Títol: p.title,
