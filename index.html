@@ -347,6 +347,36 @@
   }
   .problem-card .pdelete:hover { color: var(--text); background: var(--bg-secondary); border-color: var(--border-strong); }
 
+
+  /* toast */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border);
+    padding: 9px 18px; border-radius: 999px; font-size: 13px; z-index: 3000;
+    opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* sort select */
+  .sort-select {
+    border: 1px solid var(--border); border-radius: 6px; background: var(--bg);
+    color: var(--text-secondary); font-size: 11px; padding: 2px 6px; cursor: pointer;
+    font-family: inherit; margin-left: auto;
+  }
+
+  /* thumbnail a les targetes */
+  .card-thumb {
+    width: 48px; height: 48px; border-radius: 6px; object-fit: cover;
+    flex-shrink: 0; margin-left: 8px;
+  }
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; }
+  .card-top-left { flex: 1; min-width: 0; }
+  .problem-card img.full-photo { width: 100%; border-radius: 6px; margin-top: 6px; display: block; }
+
+  /* form-resolved-label */
+  #form-resolved-label { display: none; flex-direction: row; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--text); }
+
   /* scrollbar discreta */
   .sidebar::-webkit-scrollbar { width: 4px; }
   .sidebar::-webkit-scrollbar-track { background: transparent; }
@@ -355,10 +385,20 @@
 </style>
 </head>
 <body>
+<div id="toast"></div>
 <div id="login-overlay">
   <div class="login-box">
-    <div class="login-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+    <div class="login-icon" style="background:transparent;width:80px;height:48px;border-radius:0">
+      <svg viewBox="0 0 584 342" xmlns="http://www.w3.org/2000/svg" style="width:80px;height:48px">
+        <polygon points="0,342 60,342 60,244 0,293" fill="#C8102E"/>
+        <rect x="84" y="122" width="60" height="220" fill="#C8102E"/>
+        <polygon points="162,48 222,48 222,342 162,342" fill="#C8102E"/>
+        <rect x="240" y="122" width="60" height="220" fill="#C8102E"/>
+        <rect x="318" y="122" width="60" height="220" fill="#C8102E"/>
+        <polygon points="396,48 456,48 456,342 396,342" fill="#C8102E"/>
+        <rect x="474" y="122" width="60" height="220" fill="#C8102E"/>
+        <polygon points="534,342 584,342 584,293 534,244" fill="#C8102E"/>
+      </svg>
     </div>
     <h2>Sant Feliu, Carrer a Carrer</h2>
     <p>Identifica't per continuar.</p>
@@ -428,7 +468,7 @@
           <select id="filter-zone"><option value="">Tots els barris</option></select>
           <button id="filter-clear">✕ Netejar filtres</button>
         </div>
-        <div class="list-header"><span class="list-title">Obertes</span><span class="count-chip" id="problem-count">0</span></div>
+        <div class="list-header"><span class="list-title">Obertes</span><span class="count-chip" id="problem-count">0</span><select id="sort-select" class="sort-select"><option value="priority">Prioritat</option><option value="zone">Barri</option><option value="date">Data</option></select></div>
         <div id="problem-list"></div>
       </div>
       <div class="tab-panel" id="tab-resolved">
@@ -474,6 +514,7 @@
         <img id="form-photo-preview" class="photo-preview" />
         <p class="upload-hint" id="upload-hint"></p>
         <button id="form-relocate" class="small-btn" style="display:none;width:100%;margin-top:10px">📍 Canviar ubicació al mapa</button>
+        <label id="form-resolved-label" style="display:none;flex-direction:row;align-items:center;gap:8px;margin-top:12px"><input type="checkbox" id="form-resolved" /> Marcar com a resolta</label>
         <button id="form-delete" class="small-btn" style="display:none;width:100%;margin-top:8px;color:#A32D2D">Eliminar aquesta problemàtica</button>
       </div>
     </div>
@@ -1099,6 +1140,7 @@ function openProblemForm(latlng) {
   document.getElementById('modal-title').textContent = 'Nova problemàtica';
   document.getElementById('form-save').textContent = 'Afegir';
   document.getElementById('form-delete').style.display = 'none';
+  document.getElementById('form-resolved-label').style.display = 'none';
   document.getElementById('form-relocate').style.display = 'none';
   document.getElementById('form-title').value = '';
   document.getElementById('form-desc').value = '';
@@ -1119,6 +1161,8 @@ function openEditForm(p) {
   document.getElementById('form-save').textContent = 'Desar canvis';
   document.getElementById('form-delete').style.display = 'block';
   document.getElementById('form-relocate').style.display = 'block';
+  document.getElementById('form-resolved-label').style.display = 'flex';
+  document.getElementById('form-resolved').checked = !!p.resolved;
   document.getElementById('form-title').value = p.title || '';
   document.getElementById('form-desc').value = p.desc || '';
   setCreatedByField(p.createdBy || '');
@@ -1328,10 +1372,18 @@ document.getElementById('form-cancel').onclick = () => {
 document.getElementById('form-delete').onclick = async () => {
   if (!editingProblemId) return;
   if (!confirm('Segur que vols eliminar aquesta problemàtica?')) return;
-  try { await problemsCol.doc(editingProblemId).delete(); } catch (err) { alert('No s\'ha pogut eliminar: ' + err.message); }
-  document.getElementById('modal-overlay').classList.remove('open');
-  pendingLatLng = null;
-  editingProblemId = null;
+  try {
+    await problemsCol.doc(editingProblemId).delete();
+    document.getElementById('modal-overlay').classList.remove('open');
+    pendingLatLng = null;
+    editingProblemId = null;
+    // navega a la llista i mostra feedback
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('[data-tab="list"]').classList.add('active');
+    document.getElementById('tab-list').classList.add('active');
+    showToast('✓ Incidència eliminada');
+  } catch (err) { alert('No s\'ha pogut eliminar: ' + err.message); }
 };
 
 document.getElementById('form-save').onclick = async () => {
@@ -1341,6 +1393,7 @@ document.getElementById('form-save').onclick = async () => {
   const priority = document.getElementById('form-priority').value;
   const desc = document.getElementById('form-desc').value.trim();
   const createdBy = document.getElementById('form-createdby').value.trim() || null;
+  const resolved = editingProblemId ? document.getElementById('form-resolved').checked : false;
   const customZone = document.getElementById('form-zone-override').value || null;
   const zoneNames = computeAllZoneNames(pendingLatLng);
   const file = document.getElementById('form-photo').files[0];
@@ -1360,7 +1413,7 @@ document.getElementById('form-save').onclick = async () => {
     }
     if (wasEditingId) {
       await problemsCol.doc(wasEditingId).update({
-        title, category, priority, desc, zoneNames, customZone, photoURL, createdBy,
+        title, category, priority, desc, zoneNames, customZone, photoURL, createdBy, resolved,
         lat: pendingLatLng.lat, lng: pendingLatLng.lng
       });
     } else {
@@ -1378,10 +1431,12 @@ document.getElementById('form-save').onclick = async () => {
   saveBtn.disabled = false;
   hint.textContent = '';
   document.getElementById('modal-overlay').classList.remove('open');
+  const wasEditing = !!editingProblemId;
   pendingLatLng = null;
   editingProblemId = null;
+  showToast(wasEditing ? '✓ Canvis desats' : '✓ Incidència afegida');
 
-  if (photoQueue.length > 0 && !editingProblemId) {
+  if (photoQueue.length > 0 && !wasEditing) {
     photoQueueIndex++;
     setTimeout(processNextPhoto, 300);
   }
@@ -1436,9 +1491,17 @@ function renderAllMarkers() {
     }).addTo(map);
     const zoneShown = getZoneLabel(p, activeLayerKey);
     const prioBadge = p.priority ? `<span class="priority-badge priority-${p.priority}">${priorityLabels[p.priority]}</span>` : '';
-    const photoHtml = p.photoURL ? `<br><img src="${p.photoURL}" style="max-width:200px;border-radius:6px;margin-top:6px">` : '';
-    const creatorHtml = p.createdBy ? `<br><span style="color:var(--text-secondary);font-size:11px">Creat per: ${p.createdBy}</span>` : '';
-    marker.bindPopup(`<strong>${p.title}</strong> ${prioBadge}<br>${cat.label}${zoneShown ? ' · ' + zoneShown : ''}${p.desc ? '<br>' + p.desc : ''}${photoHtml}${creatorHtml}`);
+    const photoHtml = p.photoURL ? `<img src="${p.photoURL}" style="width:100%;border-radius:6px;margin-top:8px;display:block">` : '';
+    const creatorHtml = p.createdBy ? `<div style="color:#9aa6c0;font-size:11px;margin-top:4px">Creat per: ${p.createdBy}</div>` : '';
+    marker.bindPopup(`
+      <div style="min-width:180px;max-width:230px;font-family:-apple-system,'Segoe UI',sans-serif">
+        <div style="font-weight:600;font-size:13px;margin-bottom:5px">${p.title} ${prioBadge}</div>
+        <span style="display:inline-block;background:${cat.color};color:${readableTextColor(cat.color)};font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px">${cat.label}</span>
+        ${zoneShown ? `<span style="color:#9aa6c0;font-size:11px;margin-left:5px">${zoneShown}</span>` : ''}
+        ${p.desc ? `<div style="font-size:12px;margin-top:6px;color:#9aa6c0">${p.desc}</div>` : ''}
+        ${photoHtml}${creatorHtml}
+      </div>
+    `, { maxWidth: 260 });
     markersById[p.id] = marker;
   });
 }
@@ -1479,7 +1542,11 @@ function renderProblemList() {
 function renderProblemSubList(list, listElId, countElId, isResolvedList) {
   const listEl = document.getElementById(listElId);
   listEl.innerHTML = '';
-  const sorted = list.slice().sort((a, b) => (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1));
+  const sorted = list.slice().sort((a, b) => {
+    if (sortBy === 'zone') return (getZoneLabel(a, 'barris') || '').localeCompare(getZoneLabel(b, 'barris') || '');
+    if (sortBy === 'date') return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+    return (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1);
+  });
   document.getElementById(countElId).textContent = sorted.length;
   if (sorted.length === 0) {
     listEl.innerHTML = `<div class="empty-hint">${isResolvedList ? 'Cap problemàtica resolta encara.' : 'Cap problemàtica registrada encara.'}</div>`;
@@ -1491,12 +1558,17 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
     const prioBadge = p.priority ? `<span class="priority-badge priority-${p.priority}">${priorityLabels[p.priority]}</span>` : '';
     const card = document.createElement('div');
     card.className = `problem-card${p.priority ? ' prio-' + p.priority : ''}`;
+    const thumbHtml = p.photoURL ? `<img class="card-thumb" src="${p.photoURL}" alt="">` : '';
     card.innerHTML = `
-      <div class="ptitle">${p.title} ${prioBadge}</div>
-      <span class="pcat" style="background:${cat.color};color:${readableTextColor(cat.color)}">${cat.label}</span>
-      ${zoneShown ? `<div class="pzone">${zoneShown}</div>` : ''}
-      ${p.desc ? `<div class="pdesc">${p.desc}</div>` : ''}
-      ${p.photoURL ? `<img src="${p.photoURL}">` : ''}
+      <div class="card-top">
+        <div class="card-top-left">
+          <div class="ptitle">${p.title} ${prioBadge}</div>
+          <span class="pcat" style="background:${cat.color};color:${readableTextColor(cat.color)}">${cat.label}</span>
+          ${zoneShown ? `<div class="pzone">${zoneShown}</div>` : ''}
+          ${p.desc ? `<div class="pdesc">${p.desc}</div>` : ''}
+        </div>
+        ${thumbHtml}
+      </div>
       ${p.createdBy ? `<div class="creator-tag">Creat per: ${p.createdBy}</div>` : ''}
     `;
     card.addEventListener('click', (e) => {
@@ -1528,6 +1600,21 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
 let filterCat = '';
 let filterZone = '';
 let filterSearch = '';
+let sortBy = 'priority';
+
+let toastTimer = null;
+function showToast(msg, duration = 2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), duration);
+}
+
+document.getElementById('sort-select').addEventListener('change', (e) => {
+  sortBy = e.target.value;
+  renderProblemList();
+});
 
 document.getElementById('search-input').addEventListener('input', (e) => {
   filterSearch = e.target.value.toLowerCase();
