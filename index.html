@@ -514,6 +514,21 @@
   }
   .login-box { animation: loginIn 0.3s ease; }
 
+
+  /* ── galeria fotos formulari ── */
+  .photo-thumb-wrap { position: relative; width: 64px; height: 64px; }
+  .photo-thumb-wrap img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; display: block; }
+  .photo-thumb-wrap .rm-photo {
+    position: absolute; top: -5px; right: -5px; width: 18px; height: 18px;
+    background: #e74c3c; color: #fff; border-radius: 50%; font-size: 11px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    border: 2px solid var(--bg-secondary); font-weight: 700; line-height: 1;
+  }
+  /* ── galeria fotos targeta ── */
+  .card-photos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .card-photos img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; cursor: pointer; transition: opacity 0.15s; }
+  .card-photos img:hover { opacity: 0.85; }
+
   /* ─── SIDEBAR SCROLLBAR ─── */
   .sidebar::-webkit-scrollbar { width: 3px; }
   .sidebar::-webkit-scrollbar-track { background: transparent; }
@@ -668,9 +683,10 @@
         <input type="text" id="form-responsible" maxlength="40" placeholder="Qui gestiona aquesta incidència" />
       </div>
       <div class="modal-col-photo">
-        <label>Foto (opcional)</label>
-        <input type="file" id="form-photo" accept="image/*" />
-        <img id="form-photo-preview" class="photo-preview" />
+        <label>Fotos (opcional)</label>
+        <input type="file" id="form-photo" accept="image/*" multiple />
+        <div id="form-photo-previews" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
+        <img id="form-photo-preview" class="photo-preview" style="display:none" />
         <p class="upload-hint" id="upload-hint"></p>
         <button id="form-relocate" class="small-btn" style="display:none;width:100%;margin-top:10px">📍 Canviar ubicació al mapa</button>
         <label id="form-resolved-label" style="display:none;flex-direction:row;align-items:center;gap:8px;margin-top:12px"><input type="checkbox" id="form-resolved" /> Marcar com a resolta</label>
@@ -1329,6 +1345,8 @@ function openProblemForm(latlng) {
   document.getElementById('form-zone-override').value = '';
   document.getElementById('form-photo').value = '';
   document.getElementById('form-photo-preview').style.display = 'none';
+  pendingPhotoFiles = [];
+  document.getElementById('form-photo-previews').innerHTML = '';
   document.getElementById('upload-hint').textContent = '';
   if (categories.length) document.getElementById('form-category').value = categories[0].key;
   document.getElementById('modal-overlay').classList.add('open');
@@ -1352,6 +1370,8 @@ function openEditForm(p) {
   document.getElementById('form-zone-override').value = p.customZone || '';
   document.getElementById('form-photo').value = '';
   document.getElementById('upload-hint').textContent = '';
+  pendingPhotoFiles = [];
+  document.getElementById('form-photo-previews').innerHTML = '';
   const preview = document.getElementById('form-photo-preview');
   if (p.photoURL) { preview.src = p.photoURL; preview.style.display = 'block'; }
   else { preview.style.display = 'none'; }
@@ -1404,13 +1424,8 @@ async function processNextPhoto() {
 function placePhotoFileAndOpenForm(file, latlng) {
   map.setView(latlng, 18);
   openProblemForm(latlng);
-  const dt = new DataTransfer();
-  dt.items.add(file);
-  const formPhoto = document.getElementById('form-photo');
-  formPhoto.files = dt.files;
-  const preview = document.getElementById('form-photo-preview');
-  preview.src = URL.createObjectURL(file);
-  preview.style.display = 'block';
+  pendingPhotoFiles = [file];
+  renderFormPhotoPreviews();
 }
 
 map.on('click', (e) => {
@@ -1591,13 +1606,20 @@ document.getElementById('form-save').onclick = async () => {
   const wasEditingId = editingProblemId;
   let photoURL = wasEditingId ? (problems.find(p => p.id === wasEditingId) || {}).photoURL || null : null;
   try {
-    if (file) {
-      hint.textContent = 'Pujant la foto...';
-      const path = 'problemes/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const ref = storage.ref().child(path);
-      await ref.put(file);
-      photoURL = await ref.getDownloadURL();
+    // pujar fotos noves
+    let photoURLs = wasEditingId ? ((problems.find(p => p.id === wasEditingId) || {}).photoURLs || []) : [];
+    if (pendingPhotoFiles.length > 0) {
+      hint.textContent = `Pujant ${pendingPhotoFiles.length} foto${pendingPhotoFiles.length > 1 ? 's' : ''}...`;
+      for (const f of pendingPhotoFiles) {
+        const path = 'problemes/' + Date.now() + '_' + f.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const ref = storage.ref().child(path);
+        await ref.put(f);
+        photoURLs.push(await ref.getDownloadURL());
+      }
     }
+    // mantenir compatibilitat amb el camp photoURL antic (primera foto)
+    photoURL = photoURLs[0] || photoURL;
+
     if (wasEditingId) {
       const prevP = problems.find(p => p.id === wasEditingId) || {};
       const histEntry = {
@@ -1606,14 +1628,14 @@ document.getElementById('form-save').onclick = async () => {
       };
       const history = Array.isArray(prevP.history) ? [...prevP.history, histEntry] : [histEntry];
       await problemsCol.doc(wasEditingId).update({
-        title, category, priority, desc, zoneNames, customZone, photoURL, createdBy, responsible, resolved, history,
+        title, category, priority, desc, zoneNames, customZone, photoURL, photoURLs, createdBy, responsible, resolved, history,
         lat: pendingLatLng.lat, lng: pendingLatLng.lng
       });
     } else {
       await problemsCol.add({
         title, category, priority, desc,
         lat: pendingLatLng.lat, lng: pendingLatLng.lng,
-        zoneNames, customZone, photoURL, createdBy, responsible,
+        zoneNames, customZone, photoURL, photoURLs, createdBy, responsible,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
@@ -1639,14 +1661,48 @@ document.getElementById('form-save').onclick = async () => {
 const problems = [];
 const markersById = {};
 
+let prevProblemIds = new Set();
+let firstLoad = true;
+
 problemsCol.onSnapshot(snapshot => {
   setSyncStatus(true);
+  const currentIds = new Set();
+  const incoming = [];
+  snapshot.forEach(doc => {
+    currentIds.add(doc.id);
+    incoming.push({ id: doc.id, ...doc.data() });
+  });
+
+  if (!firstLoad) {
+    // detecta incidències noves i canviades per altres usuaris
+    incoming.forEach(p => {
+      if (!prevProblemIds.has(p.id)) {
+        const who = p.createdBy ? ` per ${p.createdBy}` : '';
+        showToast(`📍 Nova incidència${who}: "${p.title}"`);
+      }
+    });
+    // detecta resoltes per altres
+    snapshot.docChanges().forEach(change => {
+      if (change.type === 'modified') {
+        const newData = change.doc.data();
+        const oldData = problems.find(p => p.id === change.doc.id);
+        if (oldData && !oldData.resolved && newData.resolved) {
+          showToast(`✅ Resolta: "${newData.title}"`);
+        }
+      }
+    });
+  }
+
+  prevProblemIds = currentIds;
+  firstLoad = false;
   problems.length = 0;
-  snapshot.forEach(doc => problems.push({ id: doc.id, ...doc.data() }));
+  incoming.forEach(p => problems.push(p));
   renderAllMarkers();
   renderProblemList();
   renderStats();
+  updateDocTitle();
   if (selectedZoneName) updateZoneInfo(selectedZoneName);
+  else updateZoneInfo(null);
 }, () => setSyncStatus(false));
 
 let mapShowResolved = false;
@@ -1792,11 +1848,31 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
         ${thumbHtml}
       </div>
       ${p.createdBy ? `<div class="creator-tag">Creat per: ${p.createdBy}</div>` : ''}
+      ${p.responsible ? `<div class="creator-tag">Responsable: ${p.responsible}</div>` : ''}
     `;
+    // galeria fotos si n'hi ha més d'una
+    if (Array.isArray(p.photoURLs) && p.photoURLs.length > 1) {
+      const gallery = document.createElement('div');
+      gallery.className = 'card-photos';
+      p.photoURLs.forEach(url => {
+        const img = document.createElement('img');
+        img.src = url;
+        img.addEventListener('click', (e) => { e.stopPropagation(); window.open(url, '_blank'); });
+        gallery.appendChild(img);
+      });
+      card.appendChild(gallery);
+    }
     card.addEventListener('click', (e) => {
-      if (e.target.classList.contains('pdelete') || e.target.classList.contains('pedit')) return;
+      if (e.target.classList.contains('pdelete') || e.target.classList.contains('pedit') || e.target.classList.contains('share-btn')) return;
       map.setView([p.lat, p.lng], 17);
-      if (markersById[p.id]) markersById[p.id].openPopup();
+      const m = markersById[p.id];
+      if (m) {
+        m.openPopup();
+        // pulse breu al marcador
+        const origOpts = { color: m.options.color, weight: m.options.weight };
+        m.setStyle({ color: '#ffffff', weight: 6 });
+        setTimeout(() => m.setStyle(origOpts), 600);
+      }
     });
     const edit = document.createElement('span');
     edit.className = 'pdelete pedit';
@@ -1990,10 +2066,25 @@ function renderComments(p, card) {
   if (comments.length > 0) {
     const list = document.createElement('div');
     list.className = 'comments-list';
-    comments.forEach(c => {
+    comments.forEach((c, idx) => {
       const item = document.createElement('div');
       item.className = 'comment-item';
-      item.innerHTML = `<div class="comment-meta">${c.author} · ${c.date}</div><div class="comment-text">${c.text}</div>`;
+      item.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:6px';
+      const txt = document.createElement('div');
+      txt.innerHTML = `<div class="comment-meta">${c.author} · ${c.date}</div><div class="comment-text">${c.text}</div>`;
+      const rmBtn = document.createElement('span');
+      rmBtn.textContent = '×';
+      rmBtn.style.cssText = 'cursor:pointer;color:var(--text-muted);font-size:14px;flex-shrink:0;line-height:1;padding:0 2px;transition:color 0.12s';
+      rmBtn.title = 'Eliminar nota';
+      rmBtn.addEventListener('mouseenter', () => rmBtn.style.color = '#e74c3c');
+      rmBtn.addEventListener('mouseleave', () => rmBtn.style.color = 'var(--text-muted)');
+      rmBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const newComments = comments.filter((_, i) => i !== idx);
+        await problemsCol.doc(p.id).update({ comments: newComments });
+      });
+      item.appendChild(txt);
+      item.appendChild(rmBtn);
       list.appendChild(item);
     });
     body.appendChild(list);
@@ -2025,6 +2116,10 @@ function renderComments(p, card) {
     body.style.display = body.style.display === 'none' ? 'block' : 'none';
     if (body.style.display === 'block') input.focus();
   });
+  // auto-expandir si hi ha poques notes
+  if (comments.length > 0 && comments.length <= 2) {
+    body.style.display = 'block';
+  }
   section.appendChild(body);
   card.appendChild(section);
 }
