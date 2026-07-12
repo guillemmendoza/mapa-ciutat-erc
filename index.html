@@ -47,15 +47,18 @@
 
   /* ─── HEADER ─── */
   header {
-    padding: 0 20px; height: 52px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    padding: 0 14px; height: 52px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
     background: var(--bg); backdrop-filter: blur(8px);
   }
   header h1 {
-    font-size: 14px; font-weight: 700; letter-spacing: -0.01em;
-    white-space: nowrap; color: var(--text);
+    font-size: 13px; font-weight: 700; letter-spacing: -0.01em;
+    white-space: nowrap; color: var(--text); flex-shrink: 0;
   }
-  .header-spacer { flex: 1; }
+  .header-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .icon-btn { padding: 5px 8px !important; font-size: 14px !important; }
+  .header-spacer { flex: 1; min-width: 4px; }
+  .sync-status { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
 
   /* layer group – pill selector */
   .layer-group {
@@ -583,10 +586,10 @@
   #geocoder-input {
     border: 1px solid var(--border); border-radius: var(--radius-sm);
     background: var(--bg-secondary); color: var(--text);
-    padding: 5px 12px; font-size: 12px; font-family: inherit; width: 200px;
+    padding: 5px 10px; font-size: 12px; font-family: inherit; width: 160px;
     transition: border-color 0.15s, width 0.2s;
   }
-  #geocoder-input:focus { outline: none; border-color: var(--accent); width: 240px; }
+  #geocoder-input:focus { outline: none; border-color: var(--accent); width: 200px; }
   #geocoder-results {
     position: absolute; top: 34px; left: 0; right: 0; background: var(--bg-secondary);
     border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -607,6 +610,20 @@
   .stats-chart-wrap { margin-bottom: 24px; }
   .stats-chart-wrap h3 { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
   .stats-chart-wrap canvas { max-height: 200px; }
+
+
+  /* vista pública: ocultar tot el que és editable */
+  body.public-view .mode-toggle,
+  body.public-view #geo-btn,
+  body.public-view #photo-quick-btn,
+  body.public-view #more-toggle-btn,
+  body.public-view .user-menu,
+  body.public-view .pdelete,
+  body.public-view .share-btn,
+  body.public-view .comments-section,
+  body.public-view #filter-toggle-btn,
+  body.public-view .header-actions { display: none !important; }
+  body.public-view .geocoder-wrap { margin-left: auto; }
 
   /* ─── SIDEBAR SCROLLBAR ─── */
   .sidebar::-webkit-scrollbar { width: 3px; }
@@ -658,14 +675,23 @@
       <button class="layer-btn" data-layer="none">Cap</button>
       <button class="layer-btn" data-layer="districtes">Districtes</button>
       <button class="layer-btn active" data-layer="barris">Barris</button>
-      <button class="layer-btn" data-layer="seccions">Seccions censals</button>
+      <button class="layer-btn" data-layer="seccions">Seccions</button>
     </div>
-    <button class="mode-toggle" id="mode-toggle">+ Afegir</button>
-    <button class="small-btn" id="geo-btn">📍 Incidència a la meva ubicació</button>
-    <button class="small-btn" id="photo-quick-btn">📷 Incidència des de fotografia</button>
-    <input id="photo-quick-input" type="file" accept="image/*" multiple style="display:none" />
-    <button class="small-btn" id="mobile-view-toggle">📋 Veure llista</button>
+    <div class="header-actions">
+      <button class="mode-toggle" id="mode-toggle">+ Afegir</button>
+      <button class="small-btn icon-btn" id="geo-btn" title="Incidència a la meva ubicació">📍</button>
+      <button class="small-btn icon-btn" id="photo-quick-btn" title="Incidència des de fotografia">📷</button>
+      <input id="photo-quick-input" type="file" accept="image/*" multiple style="display:none" />
+      <button class="small-btn icon-btn" id="heatmap-btn" title="Mapa de calor">🌡️</button>
+    </div>
+    <div class="geocoder-wrap" id="geocoder-wrap">
+      <input type="text" id="geocoder-input" placeholder="🔍 Cerca una adreça..." />
+      <div id="geocoder-results"></div>
+    </div>
     <div class="header-spacer"></div>
+    <div class="sync-status" id="sync-status"><span class="sync-dot"></span></div>
+    <button class="small-btn icon-btn" id="theme-toggle" title="Mode clar/fosc">☀️</button>
+    <button class="small-btn icon-btn" id="mobile-view-toggle" title="Veure llista">📋</button>
     <div class="user-menu" id="user-menu">
       <button class="user-icon-btn" id="user-icon-btn"></button>
       <div class="user-dropdown" id="user-dropdown">
@@ -674,23 +700,17 @@
         <div class="ud-action" id="logout-link">Sortir</div>
       </div>
     </div>
-    <div class="geocoder-wrap" id="geocoder-wrap">
-      <input type="text" id="geocoder-input" placeholder="Cerca una adreça..." />
-      <div id="geocoder-results"></div>
-    </div>
-    <button class="small-btn" id="theme-toggle" title="Mode clar/fosc">☀️</button>
-    <div class="sync-status" id="sync-status"><span class="sync-dot"></span> Connectant...</div>
-    <button class="small-btn" id="more-toggle-btn">⚙️ Opcions avançades</button>
+    <button class="small-btn" id="more-toggle-btn">⚙️</button>
     <div class="header-extra" id="header-extra">
-      <button class="small-btn" id="elections-btn">🗳️ Resultats electorals 2023</button>
+      <button class="small-btn" id="elections-btn">🗳️ Resultats electorals</button>
       <button class="small-btn" id="categories-btn">🏷️ Categories</button>
-      <button class="small-btn" id="heatmap-btn">🌡️ Mapa de calor</button>
-      <button class="small-btn" id="zones-btn">Zones personalitzades</button>
+      <button class="small-btn" id="zones-btn">📍 Zones personalitzades</button>
       <button class="small-btn" id="users-btn">👤 Usuaris</button>
       <button class="small-btn" id="report-btn">📋 Informe per barri</button>
-      <button class="small-btn" id="export-excel-btn">Exportar a Excel</button>
-      <button class="small-btn" id="export-btn">Guardar sessió (.json)</button>
-      <button class="small-btn" id="import-btn">Carregar sessió (.json)</button>
+      <button class="small-btn" id="export-excel-btn">📊 Exportar a Excel</button>
+      <button class="small-btn" id="public-link-btn">🔗 Enllaç vista pública</button>
+      <button class="small-btn" id="export-btn">💾 Guardar sessió</button>
+      <button class="small-btn" id="import-btn">📂 Carregar sessió</button>
       <input id="import-file" type="file" accept="application/json" style="display:none" />
     </div>
   </header>
@@ -984,6 +1004,7 @@ function setLoggedInUser(user) {
   hideLogin();
 }
 function tryRestoreSession() {
+  if (isPublicView) { hideLogin(); return; }
   if (!usersLoaded) return;
   const savedName = localStorage.getItem(SESSION_KEY);
   const found = savedName ? appUsers.find(u => u.name === savedName) : null;
@@ -2794,6 +2815,29 @@ document.getElementById('report-pdf').onclick = () => {
 
   doc.save('informe-santfeliu-' + new Date().toISOString().slice(0, 10) + '.pdf');
 };
+
+/* ---------- vista pública ---------- */
+const isPublicView = new URLSearchParams(window.location.search).has('public');
+if (isPublicView) document.body.classList.add('public-view');
+if (isPublicView) {
+  document.addEventListener('DOMContentLoaded', () => {}, false);
+  // Ocultar login i mostrar app directament
+  document.getElementById('login-overlay').classList.add('hidden');
+  // Banner de vista pública
+  const banner = document.createElement('div');
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:5000;background:#f85838;color:#fff;text-align:center;padding:6px;font-size:12px;font-weight:600';
+  banner.textContent = '👁️ Vista pública de Sant Feliu, Carrer a Carrer · Només lectura';
+  document.body.prepend(banner);
+  document.body.style.paddingTop = '30px';
+}
+
+document.getElementById('public-link-btn').addEventListener('click', () => {
+  const url = window.location.href.split('?')[0] + '?public=1';
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('🔗 Enllaç copiat al porta-retalls');
+  });
+});
+
 
 </script>
 </body>
