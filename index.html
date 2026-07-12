@@ -790,6 +790,10 @@
       <button class="small-btn" id="more-toggle-btn">⚙️ Opcions avançades</button>
     </div>
     <div class="header-extra" id="header-extra">
+      <button class="small-btn base-layer-btn active-toggle" data-base="satellite">🛰️ Satèl·lit</button>
+      <button class="small-btn base-layer-btn" data-base="pnoa">🇪🇸 Ortofoto PNOA</button>
+      <button class="small-btn base-layer-btn" data-base="streets">🗺️ Carrers</button>
+      <button class="small-btn base-layer-btn" data-base="dark">🌙 Fosc</button>
       <button class="small-btn" id="elections-btn">🗳️ Resultats electorals</button>
       <button class="small-btn" id="categories-btn">🏷️ Categories</button>
       <button class="small-btn" id="zones-btn">📍 Zones personalitzades</button>
@@ -1225,10 +1229,58 @@ const priorityOrder = { alta: 0, mitja: 1, baixa: 2 };
 /* ---------- map setup ---------- */
 const map = L.map('map', { zoomControl: true }).setView([41.385, 2.048], 14);
 
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-  attribution: 'Tiles &copy; Esri',
-  maxZoom: 19
-}).addTo(map);
+/* ---------- capes base ---------- */
+const BASE_LAYERS = {
+  satellite: {
+    label: '🛰️ Satèl·lit',
+    layer: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri',
+      maxZoom: 19, maxNativeZoom: 19, detectRetina: true
+    })
+  },
+  pnoa: {
+    label: '🇪🇸 Ortofoto PNOA',
+    layer: L.tileLayer.wms('https://www.ign.es/wms-inspire/pnoa-ma', {
+      layers: 'OI.OrthoimageCoverage',
+      format: 'image/jpeg',
+      transparent: false,
+      attribution: 'PNOA © IGN España',
+      maxZoom: 20, detectRetina: true
+    })
+  },
+  streets: {
+    label: '🗺️ Carrers',
+    layer: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      maxZoom: 20, detectRetina: true
+    })
+  },
+  dark: {
+    label: '🌙 Fosc',
+    layer: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      maxZoom: 20, detectRetina: true
+    })
+  }
+};
+
+const BASE_LAYER_KEY = 'santfeliu_baselayer';
+let currentBaseLayer = null;
+
+function setBaseLayer(key) {
+  if (!BASE_LAYERS[key]) key = 'satellite';
+  if (currentBaseLayer) map.removeLayer(currentBaseLayer);
+  currentBaseLayer = BASE_LAYERS[key].layer;
+  currentBaseLayer.addTo(map);
+  currentBaseLayer.bringToBack();
+  localStorage.setItem(BASE_LAYER_KEY, key);
+  // actualitza els botons
+  document.querySelectorAll('.base-layer-btn').forEach(b => {
+    b.classList.toggle('active-toggle', b.dataset.base === key);
+  });
+}
+
+setBaseLayer(localStorage.getItem(BASE_LAYER_KEY) || 'satellite');
 
 const termeLayer = L.geoJSON(TERME, {
   style: { color: '#ffffff', weight: 2, fillOpacity: 0, dashArray: '4,4' }
@@ -1386,6 +1438,10 @@ function updateZoneInfo(name, electionEntry) {
   }
   el.innerHTML = html;
 }
+
+document.querySelectorAll('.base-layer-btn').forEach(btn => {
+  btn.addEventListener('click', () => setBaseLayer(btn.dataset.base));
+});
 
 document.querySelectorAll('.layer-btn').forEach(btn => {
   btn.addEventListener('click', () => showZoneLayer(btn.dataset.layer));
