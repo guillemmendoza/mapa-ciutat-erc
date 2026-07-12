@@ -1402,7 +1402,7 @@ function openProblemForm(latlng) {
   document.getElementById('form-photo').value = '';
   document.getElementById('form-photo-preview').style.display = 'none';
   pendingPhotoFiles = [];
-  document.getElementById('form-photo-preview')s.innerHTML = '';
+  document.getElementById('form-photo-previews').innerHTML = '';
   document.getElementById('upload-hint').textContent = '';
   if (categories.length) document.getElementById('form-category').value = categories[0].key;
   document.getElementById('modal-overlay').classList.add('open');
@@ -1427,7 +1427,7 @@ function openEditForm(p) {
   document.getElementById('form-photo').value = '';
   document.getElementById('upload-hint').textContent = '';
   pendingPhotoFiles = [];
-  document.getElementById('form-photo-preview')s.innerHTML = '';
+  document.getElementById('form-photo-previews').innerHTML = '';
   const preview = document.getElementById('form-photo-preview');
   if (p.photoURL) { preview.src = p.photoURL; preview.style.display = 'block'; }
   else { preview.style.display = 'none'; }
