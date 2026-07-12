@@ -652,6 +652,7 @@
     body.mobile-list-view #map { display: none; }
     body.mobile-list-view .sidebar { flex: 1; height: auto; width: 100%; }
     body:not(.mobile-list-view) .sidebar { display: none; }
+    #mobile-view-toggle { display: inline-block !important; }
   }
 </style>
 
@@ -714,7 +715,7 @@
       <button class="small-btn" id="photo-quick-btn">📷 Des de fotografia</button>
       <input id="photo-quick-input" type="file" accept="image/*" multiple style="display:none" />
       <button class="small-btn" id="heatmap-btn">🌡️ Mapa de calor</button>
-      <button class="small-btn" id="mobile-view-toggle">📋 Veure llista</button>
+      <button class="small-btn" id="mobile-view-toggle" style="display:none">📋 Veure llista</button>
       <div class="header-spacer"></div>
       <button class="small-btn" id="more-toggle-btn">⚙️ Opcions avançades</button>
     </div>
