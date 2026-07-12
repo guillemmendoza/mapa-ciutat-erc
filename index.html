@@ -383,33 +383,14 @@
   .login-box button:hover { opacity: 0.9; }
   .login-error { color: #e74c3c; font-size: 12px; margin-top: 10px; display: none; }
 
-  /* login custom select */
-  .login-select-wrap { position: relative; text-align: left; }
-  .login-select-trigger {
-    width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm);
-    background: var(--bg); color: var(--text); padding: 9px 12px;
-    font-size: 13px; font-family: inherit; cursor: pointer;
-    display: flex; justify-content: space-between; align-items: center;
-    transition: border-color 0.15s;
+  /* select nadiu estilitzat */
+  .login-box select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237f90ad' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    padding-right: 36px; cursor: pointer;
   }
-  .login-select-trigger:hover { border-color: var(--border-strong); }
-  .login-select-trigger.open { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
-  .login-select-arrow { font-size: 11px; color: var(--text-secondary); transition: transform 0.15s; }
-  .login-select-trigger.open .login-select-arrow { transform: rotate(180deg); }
-  .login-select-dropdown {
-    position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
-    background: var(--bg-secondary); border: 1px solid var(--accent);
-    border-top: none; border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-    max-height: 180px; overflow-y: auto; display: none;
-    box-shadow: var(--shadow);
-  }
-  .login-select-dropdown.open { display: block; }
-  .login-select-option {
-    padding: 9px 12px; font-size: 13px; cursor: pointer; color: var(--text);
-    transition: background 0.1s;
-  }
-  .login-select-option:hover { background: var(--bg-tertiary); }
-  .login-select-option.selected { color: var(--accent); font-weight: 600; }
+  .login-box select option { background: #0d1a30; color: #eef1f7; }
 
 
   /* ─── RELOCATE BANNER ─── */
@@ -622,31 +603,12 @@
 <div id="login-overlay">
   <div class="login-box">
     <div class="login-icon">
-      <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" style="width:100px;height:60px">
-        <!-- 4 triangles apuntats, ascendents d'esquerra a dreta -->
-        <!-- Triangle 1: el més petit -->
-        <polygon points="0,90 28,90 14,62" fill="#F85838"/>
-        <!-- Triangle 2: mitja alçada -->
-        <polygon points="36,90 64,90 50,42" fill="#F85838"/>
-        <!-- Triangle 3: alt -->
-        <polygon points="72,90 100,90 86,18" fill="#F85838"/>
-        <!-- Triangle 4: el més alt -->
-        <polygon points="108,90 136,90 122,0" fill="#F85838"/>
-        <!-- Base horitzontal que els uneix -->
-        <rect x="0" y="90" width="136" height="8" fill="#F85838"/>
-      </svg>
+      <img src="favicon.png" style="width:64px;height:64px;image-rendering:auto" alt="Esquerra Republicana">
     </div>
     <h2>Sant Feliu, Carrer a Carrer</h2>
     <p>Identifica't per continuar.</p>
     <label>Usuari</label>
-    <div class="login-select-wrap" id="login-select-wrap">
-      <div class="login-select-trigger" id="login-select-trigger">
-        <span id="login-select-label">Selecciona un usuari</span>
-        <span class="login-select-arrow">▾</span>
-      </div>
-      <div class="login-select-dropdown" id="login-select-dropdown"></div>
-    </div>
-    <select id="login-user" style="display:none"></select>
+    <select id="login-user"></select>
     <label>PIN</label>
     <input type="password" id="login-pin" maxlength="20" autocomplete="off" />
     <div class="login-error" id="login-error">Usuari o PIN incorrecte.</div>
@@ -939,66 +901,20 @@ usersDocRef.onSnapshot(snap => {
 
 function populateLoginSelect() {
   const sel = document.getElementById('login-user');
-  const dropdown = document.getElementById('login-select-dropdown');
-  const label = document.getElementById('login-select-label');
   const prev = sel.value;
-
   sel.innerHTML = '';
-  dropdown.innerHTML = '';
-
   appUsers.forEach(u => {
-    // hidden select (per compatibilitat)
     const opt = document.createElement('option');
     opt.value = u.name; opt.textContent = u.name;
     sel.appendChild(opt);
-
-    // dropdown visible
-    const div = document.createElement('div');
-    div.className = 'login-select-option' + (u.name === (prev || appUsers[0]?.name) ? ' selected' : '');
-    div.textContent = u.name;
-    div.addEventListener('click', () => {
-      sel.value = u.name;
-      label.textContent = u.name;
-      dropdown.classList.remove('open');
-      document.getElementById('login-select-trigger').classList.remove('open');
-      dropdown.querySelectorAll('.login-select-option').forEach(d => d.classList.remove('selected'));
-      div.classList.add('selected');
-    });
-    dropdown.appendChild(div);
   });
-
-  const first = appUsers[0];
-  if (prev && appUsers.some(u => u.name === prev)) {
-    sel.value = prev;
-    label.textContent = prev;
-  } else if (first) {
-    sel.value = first.name;
-    label.textContent = first.name;
-  }
+  if (prev && appUsers.some(u => u.name === prev)) sel.value = prev;
 }
-
-// toggle del dropdown custom
-document.getElementById('login-select-trigger').addEventListener('click', (e) => {
-  e.stopPropagation();
-  const trigger = document.getElementById('login-select-trigger');
-  const dropdown = document.getElementById('login-select-dropdown');
-  trigger.classList.toggle('open');
-  dropdown.classList.toggle('open');
-});
-document.addEventListener('click', (e) => {
-  if (!document.getElementById('login-select-wrap').contains(e.target)) {
-    document.getElementById('login-select-trigger').classList.remove('open');
-    document.getElementById('login-select-dropdown').classList.remove('open');
-  }
-});
 
 function showLogin() {
   document.getElementById('login-overlay').classList.remove('hidden');
   document.getElementById('login-error').style.display = 'none';
   document.getElementById('login-pin').value = '';
-  document.getElementById('login-select-dropdown').classList.remove('open');
-  document.getElementById('login-select-trigger').classList.remove('open');
-  setTimeout(() => document.getElementById('login-pin').focus(), 100);
 }
 function hideLogin() {
   document.getElementById('login-overlay').classList.add('hidden');
