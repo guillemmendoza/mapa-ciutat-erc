@@ -980,9 +980,21 @@ let usersLoaded = false;
 let currentUser = null;
 const SESSION_KEY = 'santfeliu_currentUser';
 
-// Carrega instantània des del cache local
+// Restauració immediata: si hi ha sessió i usuaris en cache, no cal esperar Firebase
+(function restoreImmediate() {
+  if (isPublicView) { hideLogin(); return; }
+  const savedName = localStorage.getItem(SESSION_KEY);
+  if (!savedName) return;
+  const found = appUsers.find(u => u.name === savedName);
+  if (found) {
+    currentUser = found;
+    document.getElementById('user-badge-name').textContent = found.name;
+    document.getElementById('user-icon-btn').textContent = found.name.charAt(0).toUpperCase();
+    hideLogin();
+  }
+})();
+
 populateLoginSelect();
-tryRestoreSession();
 
 usersDocRef.onSnapshot(snap => {
   if (snap.exists && Array.isArray(snap.data().list) && snap.data().list.length) {
@@ -993,8 +1005,15 @@ usersDocRef.onSnapshot(snap => {
   }
   usersLoaded = true;
   populateLoginSelect();
-  tryRestoreSession();
-}, () => { usersLoaded = true; tryRestoreSession(); });
+  // Si el currentUser ja restaurat existeix a la llista real, actualitza'l
+  if (currentUser) {
+    const updated = appUsers.find(u => u.name === currentUser.name);
+    if (updated) { currentUser = updated; }
+    else { localStorage.removeItem(SESSION_KEY); currentUser = null; showLogin(); }
+  } else {
+    tryRestoreSession();
+  }
+}, () => { usersLoaded = true; if (!currentUser) showLogin(); });
 
 function populateLoginSelect() {
   const sel = document.getElementById('login-user');
