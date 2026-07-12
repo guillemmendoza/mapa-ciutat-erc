@@ -6,6 +6,8 @@
 <title>Sant Feliu, Carrer a Carrer</title>
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -14,6 +16,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <style>
   :root {
     --bg: #070f20;
@@ -405,6 +408,43 @@
   .leaflet-popup-tip { background: var(--bg-secondary); }
   .leaflet-popup-content { margin: 12px 14px !important; }
 
+
+  /* mode clar */
+  body.light {
+    --bg: #f4f6fa; --bg-secondary: #ffffff; --bg-tertiary: #eaecf2;
+    --text: #0d1520; --text-secondary: #4a5a72; --text-muted: #8a9ab2;
+    --border: rgba(0,0,0,0.1); --border-strong: rgba(0,0,0,0.25);
+    --shadow: 0 4px 20px rgba(0,0,0,0.12); --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
+    --accent-dim: rgba(248,88,56,0.1);
+  }
+  body.light #map { background: #e8edf5; }
+  body.light .leaflet-popup-content-wrapper { background: #fff; color: #0d1520; }
+  body.light .leaflet-popup-tip { background: #fff; }
+
+  /* cluster personalitzat */
+  .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+    background: rgba(248,88,56,0.15) !important;
+  }
+  .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
+    background: var(--accent) !important; color: #fff !important;
+    font-weight: 700 !important; font-size: 12px !important;
+  }
+
+  /* etiqueta tooltip al mapa */
+  .map-label {
+    background: transparent; border: none; box-shadow: none;
+    font-size: 11px; font-weight: 600; color: var(--text);
+    white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  }
+
+  /* historial de canvis */
+  .history-section { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
+  .history-item { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
+
+  /* botó compartir */
+  .share-btn { font-size: 10px; color: var(--text-muted); cursor: pointer; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; transition: all 0.12s; display: inline-block; margin-top: 10px; margin-right: 4px; }
+  .share-btn:hover { color: var(--text); border-color: var(--border-strong); }
+
   /* ─── SIDEBAR SCROLLBAR ─── */
   .sidebar::-webkit-scrollbar { width: 3px; }
   .sidebar::-webkit-scrollbar-track { background: transparent; }
@@ -475,6 +515,7 @@
         <div class="ud-action" id="logout-link">Sortir</div>
       </div>
     </div>
+    <button class="small-btn" id="theme-toggle" title="Mode clar/fosc">☀️</button>
     <div class="sync-status" id="sync-status"><span class="sync-dot"></span> Connectant...</div>
     <button class="small-btn" id="more-toggle-btn">⚙️ Opcions avançades</button>
     <div class="header-extra" id="header-extra">
@@ -506,6 +547,7 @@
           <span id="search-clear" style="display:none">✕</span>
         </div>
         <div class="filter-bar">
+          <select id="filter-status"><option value="">Totes (obertes + resoltes)</option><option value="open">Només obertes</option><option value="resolved">Només resoltes</option></select>
           <select id="filter-cat"><option value="">Totes les categories</option></select>
           <select id="filter-zone"><option value="">Tots els barris</option></select>
           <button id="filter-clear">✕ Netejar filtres</button>
@@ -549,6 +591,8 @@
         <label>Creat per</label>
         <input type="text" id="form-createdby" maxlength="40" placeholder="Nom de qui ha fet la incidència" />
         <p class="upload-hint" id="form-createdby-display" style="display:none"></p>
+        <label>Responsable</label>
+        <input type="text" id="form-responsible" maxlength="40" placeholder="Qui gestiona aquesta incidència" />
       </div>
       <div class="modal-col-photo">
         <label>Foto (opcional)</label>
@@ -961,9 +1005,28 @@ function updateZoneInfo(name, electionEntry) {
   const el = document.getElementById('zone-info');
   if (!name) {
     selectedZoneName = null;
-    el.innerHTML = activeLayerKey === 'none'
-      ? 'Selecciona una divisió territorial per veure-hi informació de zona.'
-      : 'Clica una zona del mapa per veure-la aquí.';
+    const total = problems.length;
+    const obertes = problems.filter(p => !p.resolved).length;
+    const resoltes = problems.filter(p => p.resolved).length;
+    if (total === 0) {
+      el.innerHTML = 'Afegeix la primera incidència al mapa.';
+      return;
+    }
+    const pct = total > 0 ? Math.round((resoltes / total) * 100) : 0;
+    const alta = problems.filter(p => !p.resolved && p.priority === 'alta').length;
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <span class="zname">${obertes} obertes</span>
+        <span style="font-size:11px;color:var(--text-muted)">${resoltes} resoltes</span>
+      </div>
+      <div style="background:var(--bg-tertiary);border-radius:4px;height:5px;overflow:hidden;margin-bottom:8px">
+        <div style="height:100%;width:${pct}%;background:#27ae60;border-radius:4px;transition:width 0.4s"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted)">${pct}% resoltes${alta > 0 ? ` · <span style="color:#e74c3c;font-weight:600">${alta} d'alta prioritat</span>` : ''}</div>
+    `;
+    if (activeLayerKey !== 'none') {
+      el.innerHTML += `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">Clica una zona per veure'n el detall.</div>`;
+    }
     return;
   }
   const zoneProblems = problems.filter(p => getZoneLabel(p, activeLayerKey) === name);
@@ -1187,6 +1250,7 @@ function openProblemForm(latlng) {
   document.getElementById('form-title').value = '';
   document.getElementById('form-desc').value = '';
   setCreatedByField(currentUser ? currentUser.name : '');
+  document.getElementById('form-responsible').value = '';
   document.getElementById('form-priority').value = 'mitja';
   document.getElementById('form-zone-override').value = '';
   document.getElementById('form-photo').value = '';
@@ -1208,6 +1272,7 @@ function openEditForm(p) {
   document.getElementById('form-title').value = p.title || '';
   document.getElementById('form-desc').value = p.desc || '';
   setCreatedByField(p.createdBy || '');
+  document.getElementById('form-responsible').value = p.responsible || '';
   document.getElementById('form-priority').value = p.priority || 'mitja';
   document.getElementById('form-zone-override').value = p.customZone || '';
   document.getElementById('form-photo').value = '';
@@ -1435,6 +1500,7 @@ document.getElementById('form-save').onclick = async () => {
   const priority = document.getElementById('form-priority').value;
   const desc = document.getElementById('form-desc').value.trim();
   const createdBy = document.getElementById('form-createdby').value.trim() || null;
+  const responsible = document.getElementById('form-responsible').value.trim() || null;
   const resolved = editingProblemId ? document.getElementById('form-resolved').checked : false;
   const customZone = document.getElementById('form-zone-override').value || null;
   const zoneNames = computeAllZoneNames(pendingLatLng);
@@ -1454,15 +1520,21 @@ document.getElementById('form-save').onclick = async () => {
       photoURL = await ref.getDownloadURL();
     }
     if (wasEditingId) {
+      const prevP = problems.find(p => p.id === wasEditingId) || {};
+      const histEntry = {
+        by: currentUser ? currentUser.name : 'Desconegut',
+        date: new Date().toLocaleDateString('ca-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      };
+      const history = Array.isArray(prevP.history) ? [...prevP.history, histEntry] : [histEntry];
       await problemsCol.doc(wasEditingId).update({
-        title, category, priority, desc, zoneNames, customZone, photoURL, createdBy, resolved,
+        title, category, priority, desc, zoneNames, customZone, photoURL, createdBy, responsible, resolved, history,
         lat: pendingLatLng.lat, lng: pendingLatLng.lng
       });
     } else {
       await problemsCol.add({
         title, category, priority, desc,
         lat: pendingLatLng.lat, lng: pendingLatLng.lng,
-        zoneNames, customZone, photoURL, createdBy,
+        zoneNames, customZone, photoURL, createdBy, responsible,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
@@ -1501,6 +1573,8 @@ problemsCol.onSnapshot(snapshot => {
 let mapShowResolved = false;
 
 function isFiltered(p) {
+  if (filterStatus === 'open' && p.resolved) return false;
+  if (filterStatus === 'resolved' && !p.resolved) return false;
   if (filterCat && p.category !== filterCat) return false;
   if (filterZone) {
     if (filterZone.startsWith('__custom__')) {
@@ -1516,11 +1590,21 @@ function isFiltered(p) {
   return true;
 }
 
+let clusterGroup = null;
+
 function renderAllMarkers() {
+  if (clusterGroup) { map.removeLayer(clusterGroup); clusterGroup = null; }
   Object.values(markersById).forEach(m => map.removeLayer(m));
   for (const k in markersById) delete markersById[k];
-  const hasFilter = !!(filterCat || filterZone);
-  problems.filter(p => mapShowResolved ? !!p.resolved : !p.resolved).forEach(p => {
+
+  const hasFilter = !!(filterCat || filterZone || filterSearch || filterStatus);
+  const showList = problems.filter(p => mapShowResolved ? !!p.resolved : !p.resolved);
+
+  if (typeof L.markerClusterGroup === 'function' && !hasFilter) {
+    clusterGroup = L.markerClusterGroup({ maxClusterRadius: 40, disableClusteringAtZoom: 16 });
+  }
+
+  showList.forEach(p => {
     const cat = categoryOf(p.category);
     const radius = priorityRadius[p.priority] || 8;
     const matched = !hasFilter || isFiltered(p);
@@ -1530,22 +1614,28 @@ function renderAllMarkers() {
       weight: matched ? 2 : 0,
       fillColor: matched ? cat.color : '#555555',
       fillOpacity: matched ? 1 : 0.25
-    }).addTo(map);
+    });
     const zoneShown = getZoneLabel(p, activeLayerKey);
     const prioBadge = p.priority ? `<span class="priority-badge priority-${p.priority}">${priorityLabels[p.priority]}</span>` : '';
     const photoHtml = p.photoURL ? `<img src="${p.photoURL}" style="width:100%;border-radius:6px;margin-top:8px;display:block">` : '';
     const creatorHtml = p.createdBy ? `<div style="color:#9aa6c0;font-size:11px;margin-top:4px">Creat per: ${p.createdBy}</div>` : '';
+    const responsibleHtml = p.responsible ? `<div style="color:#9aa6c0;font-size:11px">Responsable: ${p.responsible}</div>` : '';
     marker.bindPopup(`
       <div style="min-width:180px;max-width:230px;font-family:-apple-system,'Segoe UI',sans-serif">
         <div style="font-weight:600;font-size:13px;margin-bottom:5px">${p.title} ${prioBadge}</div>
         <span style="display:inline-block;background:${cat.color};color:${readableTextColor(cat.color)};font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px">${cat.label}</span>
         ${zoneShown ? `<span style="color:#9aa6c0;font-size:11px;margin-left:5px">${zoneShown}</span>` : ''}
         ${p.desc ? `<div style="font-size:12px;margin-top:6px;color:#9aa6c0">${p.desc}</div>` : ''}
-        ${photoHtml}${creatorHtml}
+        ${photoHtml}${creatorHtml}${responsibleHtml}
       </div>
     `, { maxWidth: 260 });
+    marker.bindTooltip(p.title, { permanent: false, direction: 'top', className: 'map-label', opacity: 1 });
     markersById[p.id] = marker;
+    if (clusterGroup) clusterGroup.addLayer(marker);
+    else marker.addTo(map);
   });
+
+  if (clusterGroup) map.addLayer(clusterGroup);
 }
 
 document.getElementById('toggle-map-resolved-btn').addEventListener('click', () => {
@@ -1577,8 +1667,16 @@ function getVisibleProblems() {
 function renderProblemList() {
   populateFilters();
   const visible = getVisibleProblems();
-  renderProblemSubList(visible.filter(p => !p.resolved), 'problem-list', 'problem-count', false);
-  renderProblemSubList(visible.filter(p => p.resolved), 'resolved-list', 'resolved-count', true);
+  if (filterStatus === 'open') {
+    renderProblemSubList(visible, 'problem-list', 'problem-count', false);
+    renderProblemSubList([], 'resolved-list', 'resolved-count', true);
+  } else if (filterStatus === 'resolved') {
+    renderProblemSubList([], 'problem-list', 'problem-count', false);
+    renderProblemSubList(visible, 'resolved-list', 'resolved-count', true);
+  } else {
+    renderProblemSubList(visible.filter(p => !p.resolved), 'problem-list', 'problem-count', false);
+    renderProblemSubList(visible.filter(p => p.resolved), 'resolved-list', 'resolved-count', true);
+  }
 }
 
 function renderProblemSubList(list, listElId, countElId, isResolvedList) {
@@ -1630,10 +1728,38 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
     del.className = 'pdelete';
     del.textContent = 'Eliminar';
     del.addEventListener('click', (e) => { e.stopPropagation(); removeProblem(p); });
+    const shareBtn = document.createElement('span');
+    shareBtn.className = 'share-btn';
+    shareBtn.textContent = '🔗 Compartir';
+    shareBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const text = [
+        p.title,
+        categoryOf(p.category).label,
+        getZoneLabel(p, 'barris') || '',
+        p.desc || '',
+        p.createdBy ? 'Creat per: ' + p.createdBy : '',
+        p.responsible ? 'Responsable: ' + p.responsible : ''
+      ].filter(Boolean).join('\n');
+      navigator.clipboard.writeText(text).then(() => {
+        shareBtn.textContent = '✓ Copiat!';
+        setTimeout(() => { shareBtn.textContent = '🔗 Compartir'; }, 2000);
+      });
+    });
+
     card.appendChild(edit);
     card.appendChild(resolveBtn);
+    card.appendChild(shareBtn);
     card.appendChild(del);
     renderComments(p, card);
+    if (Array.isArray(p.history) && p.history.length > 0) {
+      const hs = document.createElement('div');
+      hs.className = 'history-section';
+      hs.innerHTML = p.history.slice(-3).reverse().map(h =>
+        `<div class="history-item">✏️ ${h.by} — ${h.date}</div>`
+      ).join('');
+      card.appendChild(hs);
+    }
     listEl.appendChild(card);
   });
 }
@@ -1642,7 +1768,38 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
 let filterCat = '';
 let filterZone = '';
 let filterSearch = '';
+let filterStatus = '';
 let sortBy = 'priority';
+
+/* ---------- mode clar/fosc ---------- */
+const THEME_KEY = 'santfeliu_theme';
+function applyTheme(theme) {
+  document.body.classList.toggle('light', theme === 'light');
+  document.getElementById('theme-toggle').textContent = theme === 'light' ? '🌙' : '☀️';
+  localStorage.setItem(THEME_KEY, theme);
+}
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  applyTheme(document.body.classList.contains('light') ? 'dark' : 'light');
+});
+applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+
+/* ---------- Escape tanca modals ---------- */
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  ['modal-overlay','cat-modal-overlay','zone-modal-overlay','user-modal-overlay','report-modal-overlay'].forEach(id => {
+    document.getElementById(id).classList.remove('open');
+  });
+  if (relocating || pickingPhotoLocation) {
+    relocating = false; pickingPhotoLocation = false; pendingPhotoFile = null;
+    photoQueue = []; photoQueueIndex = 0; updatePhotoBtnLabel();
+    document.getElementById('relocate-banner').style.display = 'none';
+    document.getElementById('photo-skip').style.display = 'none';
+    map.getContainer().style.cursor = addMode ? 'crosshair' : '';
+  }
+});
+
+/* ---------- filtre estat ---------- */
+document.getElementById('filter-status').addEventListener('change', (e) => { filterStatus = e.target.value; renderProblemList(); renderAllMarkers(); });
 
 let toastTimer = null;
 function showToast(msg, duration = 2500) {
@@ -1715,9 +1872,10 @@ function populateFilters() {
 document.getElementById('filter-cat').addEventListener('change', (e) => { filterCat = e.target.value; renderProblemList(); renderAllMarkers(); });
 document.getElementById('filter-zone').addEventListener('change', (e) => { filterZone = e.target.value; renderProblemList(); renderAllMarkers(); });
 document.getElementById('filter-clear').addEventListener('click', () => {
-  filterCat = ''; filterZone = '';
+  filterCat = ''; filterZone = ''; filterStatus = '';
   document.getElementById('filter-cat').value = '';
   document.getElementById('filter-zone').value = '';
+  document.getElementById('filter-status').value = '';
   renderProblemList();
   renderAllMarkers();
 });
