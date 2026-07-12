@@ -604,12 +604,15 @@
     </div>
     <h2>Sant Feliu, Carrer a Carrer</h2>
     <p>Identifica't per continuar.</p>
-    <label>Usuari</label>
-    <select id="login-user"><option value="guillem">guillem</option></select>
-    <label>PIN</label>
-    <input type="password" id="login-pin" maxlength="20" autocomplete="off" />
-    <div class="login-error" id="login-error">Usuari o PIN incorrecte.</div>
-    <button id="login-submit">Entrar</button>
+    <div id="login-loading" style="text-align:center;padding:20px 0;color:var(--text-secondary);font-size:13px">Carregant...</div>
+    <div id="login-form" style="display:none">
+      <label>Usuari</label>
+      <select id="login-user"></select>
+      <label>PIN</label>
+      <input type="password" id="login-pin" maxlength="20" autocomplete="off" />
+      <div class="login-error" id="login-error">Usuari o PIN incorrecte.</div>
+      <button id="login-submit">Entrar</button>
+    </div>
   </div>
 </div>
 <div class="app">
@@ -885,10 +888,6 @@ let usersLoaded = false;
 let currentUser = null;
 const SESSION_KEY = 'santfeliu_currentUser';
 
-// pobla el select immediatament amb els usuaris per defecte
-// (es tornarà a cridar quan Firebase respongui)
-populateLoginSelect();
-
 usersDocRef.onSnapshot(snap => {
   if (snap.exists && Array.isArray(snap.data().list) && snap.data().list.length) {
     appUsers = snap.data().list;
@@ -905,13 +904,15 @@ function populateLoginSelect() {
   if (!sel) return;
   const prev = sel.value;
   sel.innerHTML = '';
-  const users = appUsers.length ? appUsers : defaultUsers;
-  users.forEach(u => {
+  appUsers.forEach(u => {
     const opt = document.createElement('option');
     opt.value = u.name; opt.textContent = u.name;
     sel.appendChild(opt);
   });
-  if (prev && users.some(u => u.name === prev)) sel.value = prev;
+  if (prev && appUsers.some(u => u.name === prev)) sel.value = prev;
+  // amaga el loading i mostra el formulari real
+  document.getElementById('login-loading').style.display = 'none';
+  document.getElementById('login-form').style.display = 'block';
 }
 
 function showLogin() {
