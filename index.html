@@ -880,21 +880,33 @@ customZonesDocRef.onSnapshot(snap => {
 const defaultUsers = [
   { name: "guillem", pin: "2004", admin: true }
 ];
-let appUsers = defaultUsers.map(u => ({ ...u }));
+const USERS_CACHE_KEY = 'santfeliu_users_cache';
+let appUsers = (() => {
+  try {
+    const cached = localStorage.getItem(USERS_CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+  } catch(e) { /* silenced */ }
+  return defaultUsers.map(u => ({ ...u }));
+})();
 let usersLoaded = false;
 let currentUser = null;
 const SESSION_KEY = 'santfeliu_currentUser';
 
+// Carrega instantània des del cache local
+populateLoginSelect();
+tryRestoreSession();
+
 usersDocRef.onSnapshot(snap => {
   if (snap.exists && Array.isArray(snap.data().list) && snap.data().list.length) {
     appUsers = snap.data().list;
+    try { localStorage.setItem(USERS_CACHE_KEY, JSON.stringify(appUsers)); } catch(e) { /* silenced */ }
   } else if (!snap.exists) {
     usersDocRef.set({ list: defaultUsers });
   }
   usersLoaded = true;
   populateLoginSelect();
   tryRestoreSession();
-}, () => { usersLoaded = true; populateLoginSelect(); tryRestoreSession(); });
+}, () => { usersLoaded = true; tryRestoreSession(); });
 
 function populateLoginSelect() {
   const sel = document.getElementById('login-user');
