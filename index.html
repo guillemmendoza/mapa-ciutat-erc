@@ -383,6 +383,35 @@
   .login-box button:hover { opacity: 0.9; }
   .login-error { color: #e74c3c; font-size: 12px; margin-top: 10px; display: none; }
 
+  /* login custom select */
+  .login-select-wrap { position: relative; text-align: left; }
+  .login-select-trigger {
+    width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--text); padding: 9px 12px;
+    font-size: 13px; font-family: inherit; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    transition: border-color 0.15s;
+  }
+  .login-select-trigger:hover { border-color: var(--border-strong); }
+  .login-select-trigger.open { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+  .login-select-arrow { font-size: 11px; color: var(--text-secondary); transition: transform 0.15s; }
+  .login-select-trigger.open .login-select-arrow { transform: rotate(180deg); }
+  .login-select-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+    background: var(--bg-secondary); border: 1px solid var(--accent);
+    border-top: none; border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    max-height: 180px; overflow-y: auto; display: none;
+    box-shadow: var(--shadow);
+  }
+  .login-select-dropdown.open { display: block; }
+  .login-select-option {
+    padding: 9px 12px; font-size: 13px; cursor: pointer; color: var(--text);
+    transition: background 0.1s;
+  }
+  .login-select-option:hover { background: var(--bg-tertiary); }
+  .login-select-option.selected { color: var(--accent); font-weight: 600; }
+
+
   /* ─── RELOCATE BANNER ─── */
   #relocate-banner {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -592,22 +621,35 @@
 </div>
 <div id="login-overlay">
   <div class="login-box">
-    <div class="login-icon" style="background:transparent;width:80px;height:48px;border-radius:0">
-      <svg viewBox="0 0 584 342" xmlns="http://www.w3.org/2000/svg" style="width:80px;height:48px">
-        <polygon points="0,342 60,342 60,244 0,293" fill="#C8102E"/>
-        <rect x="84" y="122" width="60" height="220" fill="#C8102E"/>
-        <polygon points="162,48 222,48 222,342 162,342" fill="#C8102E"/>
-        <rect x="240" y="122" width="60" height="220" fill="#C8102E"/>
-        <rect x="318" y="122" width="60" height="220" fill="#C8102E"/>
-        <polygon points="396,48 456,48 456,342 396,342" fill="#C8102E"/>
-        <rect x="474" y="122" width="60" height="220" fill="#C8102E"/>
-        <polygon points="534,342 584,342 584,293 534,244" fill="#C8102E"/>
+    <div class="login-icon">
+      <svg viewBox="0 0 580 340" xmlns="http://www.w3.org/2000/svg" style="width:88px;height:52px">
+        <!-- triangle esquerra exterior (petit) -->
+        <polygon points="0,340 72,340 72,238 0,289" fill="#C8102E"/>
+        <!-- barra esquerra interior -->
+        <rect x="96" y="110" width="72" height="230" fill="#C8102E"/>
+        <!-- barra central (la més alta) -->
+        <polygon points="192,0 264,0 264,340 192,340" fill="#C8102E"/>
+        <!-- barra dreta interior -->
+        <rect x="288" y="110" width="72" height="230" fill="#C8102E"/>
+        <!-- barra dreta exterior -->
+        <rect x="384" y="110" width="72" height="230" fill="#C8102E"/>
+        <!-- barra dreta 2 (segona alta) -->
+        <polygon points="480,0 552,0 552,340 480,340" fill="#C8102E"/>
+        <!-- triangle dreta exterior (petit) -->
+        <polygon points="576,238 576,340 504,340" fill="#C8102E"/>
       </svg>
     </div>
     <h2>Sant Feliu, Carrer a Carrer</h2>
     <p>Identifica't per continuar.</p>
     <label>Usuari</label>
-    <select id="login-user"></select>
+    <div class="login-select-wrap" id="login-select-wrap">
+      <div class="login-select-trigger" id="login-select-trigger">
+        <span id="login-select-label">Selecciona un usuari</span>
+        <span class="login-select-arrow">▾</span>
+      </div>
+      <div class="login-select-dropdown" id="login-select-dropdown"></div>
+    </div>
+    <select id="login-user" style="display:none"></select>
     <label>PIN</label>
     <input type="password" id="login-pin" maxlength="20" autocomplete="off" />
     <div class="login-error" id="login-error">Usuari o PIN incorrecte.</div>
@@ -900,20 +942,65 @@ usersDocRef.onSnapshot(snap => {
 
 function populateLoginSelect() {
   const sel = document.getElementById('login-user');
+  const dropdown = document.getElementById('login-select-dropdown');
+  const label = document.getElementById('login-select-label');
   const prev = sel.value;
+
   sel.innerHTML = '';
+  dropdown.innerHTML = '';
+
   appUsers.forEach(u => {
+    // hidden select (per compatibilitat)
     const opt = document.createElement('option');
     opt.value = u.name; opt.textContent = u.name;
     sel.appendChild(opt);
+
+    // dropdown visible
+    const div = document.createElement('div');
+    div.className = 'login-select-option' + (u.name === (prev || appUsers[0]?.name) ? ' selected' : '');
+    div.textContent = u.name;
+    div.addEventListener('click', () => {
+      sel.value = u.name;
+      label.textContent = u.name;
+      dropdown.classList.remove('open');
+      document.getElementById('login-select-trigger').classList.remove('open');
+      dropdown.querySelectorAll('.login-select-option').forEach(d => d.classList.remove('selected'));
+      div.classList.add('selected');
+    });
+    dropdown.appendChild(div);
   });
-  if (prev && appUsers.some(u => u.name === prev)) sel.value = prev;
+
+  const first = appUsers[0];
+  if (prev && appUsers.some(u => u.name === prev)) {
+    sel.value = prev;
+    label.textContent = prev;
+  } else if (first) {
+    sel.value = first.name;
+    label.textContent = first.name;
+  }
 }
+
+// toggle del dropdown custom
+document.getElementById('login-select-trigger').addEventListener('click', () => {
+  const trigger = document.getElementById('login-select-trigger');
+  const dropdown = document.getElementById('login-select-dropdown');
+  trigger.classList.toggle('open');
+  dropdown.classList.toggle('open');
+});
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('login-select-wrap').contains(e.target)) {
+    document.getElementById('login-select-trigger').classList.remove('open');
+    document.getElementById('login-select-dropdown').classList.remove('open');
+  }
+});
 
 function showLogin() {
   document.getElementById('login-overlay').classList.remove('hidden');
   document.getElementById('login-error').style.display = 'none';
   document.getElementById('login-pin').value = '';
+  document.getElementById('login-select-dropdown').classList.remove('open');
+  document.getElementById('login-select-trigger').classList.remove('open');
+  setTimeout(() => document.getElementById('login-pin').focus(), 100);
 }
 function hideLogin() {
   document.getElementById('login-overlay').classList.add('hidden');
