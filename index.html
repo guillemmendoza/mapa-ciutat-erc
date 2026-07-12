@@ -445,6 +445,75 @@
   .share-btn { font-size: 10px; color: var(--text-muted); cursor: pointer; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; transition: all 0.12s; display: inline-block; margin-top: 10px; margin-right: 4px; }
   .share-btn:hover { color: var(--text); border-color: var(--border-strong); }
 
+
+  /* ── animació entrada targetes ── */
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .problem-card { animation: cardIn 0.18s ease both; }
+
+  /* ── shake quan deses sense títol ── */
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%,60%  { transform: translateX(-6px); }
+    40%,80%  { transform: translateX(6px); }
+  }
+  .shake { animation: shake 0.35s ease; border-color: #e74c3c !important; box-shadow: 0 0 0 3px rgba(231,76,60,0.2) !important; }
+
+  /* ── transició entre tabs ── */
+  .tab-panel.active { animation: fadeIn 0.18s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ── loading skeleton ── */
+  @keyframes shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+  .skeleton {
+    background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
+    background-size: 800px 100%;
+    animation: shimmer 1.4s infinite linear;
+    border-radius: 6px; height: 14px; margin-bottom: 10px;
+  }
+  .skeleton.tall { height: 60px; }
+
+  /* ── char counter ── */
+  .char-counter { font-size: 10px; color: var(--text-muted); text-align: right; margin-top: 2px; }
+  .char-counter.warn { color: #e67e22; }
+
+  /* ── sticky search/filter ── */
+  .sidebar-sticky { position: sticky; top: 0; background: var(--bg); z-index: 10; padding-bottom: 4px; }
+
+  /* ── back to top ── */
+  #back-to-top {
+    position: absolute; bottom: 16px; right: 16px; width: 32px; height: 32px;
+    background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    font-size: 14px; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    z-index: 20; box-shadow: var(--shadow-sm);
+  }
+  #back-to-top.visible { opacity: 1; pointer-events: all; }
+
+  /* ── pulse en nou marcador ── */
+  @keyframes markerPulse {
+    0%   { stroke-opacity: 1; stroke-width: 2; }
+    50%  { stroke-opacity: 0.4; stroke-width: 8; }
+    100% { stroke-opacity: 1; stroke-width: 2; }
+  }
+
+  /* ── títol document dinàmic (no CSS però anem) ── */
+
+  /* ── unsaved dot ── */
+  #modal-title .unsaved { display: inline-block; width: 7px; height: 7px; background: var(--accent); border-radius: 50%; margin-left: 6px; vertical-align: middle; }
+
+  /* ── millora login: animació entrada ── */
+  @keyframes loginIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .login-box { animation: loginIn 0.3s ease; }
+
   /* ─── SIDEBAR SCROLLBAR ─── */
   .sidebar::-webkit-scrollbar { width: 3px; }
   .sidebar::-webkit-scrollbar-track { background: transparent; }
@@ -541,6 +610,7 @@
         <button class="tab-btn" data-tab="stats">Estadístiques</button>
       </div>
       <div class="tab-panel active" id="tab-list">
+        <div class="sidebar-sticky">
         <div class="search-bar">
           <span>🔍</span>
           <input type="text" id="search-input" placeholder="Cerca per títol o descripció..." />
@@ -552,6 +622,8 @@
           <select id="filter-zone"><option value="">Tots els barris</option></select>
           <button id="filter-clear">✕ Netejar filtres</button>
         </div>
+        </div><!-- /sidebar-sticky -->
+        <div id="back-to-top" title="Tornar amunt">↑</div>
         <div class="list-header"><span class="list-title">Obertes</span><span class="count-chip" id="problem-count">0</span><select id="sort-select" class="sort-select"><option value="priority">Prioritat</option><option value="zone">Barri</option><option value="date">Data</option></select></div>
         <div id="problem-list"></div>
       </div>
@@ -573,7 +645,8 @@
     <div class="modal-grid">
       <div class="modal-col-main">
         <label>Títol</label>
-        <input type="text" id="form-title" maxlength="60" placeholder="Ex: Vorera trencada" />
+        <input type="text" id="form-title" maxlength="60" placeholder="Ex: Vorera trencada" autocomplete="off" />
+        <div class="char-counter" id="title-counter">0 / 60</div>
         <label>Categoria</label>
         <select id="form-category"></select>
         <label>Prioritat</label>
@@ -734,6 +807,7 @@ categoriesDocRef.onSnapshot(snap => {
   renderHeatmap();
   renderProblemList();
   renderStats();
+  updateDocTitle();
 }, () => setSyncStatus(false));
 
 /* ---------- custom zones (synced) ---------- */
@@ -1242,7 +1316,7 @@ function setCreatedByField(value) {
 function openProblemForm(latlng) {
   editingProblemId = null;
   pendingLatLng = latlng;
-  document.getElementById('modal-title').textContent = 'Nova problemàtica';
+  document.getElementById('modal-title').innerHTML = 'Nova problemàtica';
   document.getElementById('form-save').textContent = 'Afegir';
   document.getElementById('form-delete').style.display = 'none';
   document.getElementById('form-resolved-label').style.display = 'none';
@@ -1258,12 +1332,13 @@ function openProblemForm(latlng) {
   document.getElementById('upload-hint').textContent = '';
   if (categories.length) document.getElementById('form-category').value = categories[0].key;
   document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('form-title').focus(), 50);
 }
 
 function openEditForm(p) {
   editingProblemId = p.id;
   pendingLatLng = { lat: p.lat, lng: p.lng };
-  document.getElementById('modal-title').textContent = 'Editar problemàtica';
+  document.getElementById('modal-title').innerHTML = 'Editar problemàtica';
   document.getElementById('form-save').textContent = 'Desar canvis';
   document.getElementById('form-delete').style.display = 'block';
   document.getElementById('form-relocate').style.display = 'block';
@@ -1495,7 +1570,11 @@ document.getElementById('form-delete').onclick = async () => {
 
 document.getElementById('form-save').onclick = async () => {
   const title = document.getElementById('form-title').value.trim();
-  if (!title || !pendingLatLng) { document.getElementById('modal-overlay').classList.remove('open'); return; }
+  if (!title) {
+    shakeField(document.getElementById('form-title'));
+    return;
+  }
+  if (!pendingLatLng) { document.getElementById('modal-overlay').classList.remove('open'); return; }
   const category = document.getElementById('form-category').value;
   const priority = document.getElementById('form-priority').value;
   const desc = document.getElementById('form-desc').value.trim();
@@ -1652,7 +1731,10 @@ async function removeProblem(p) {
 }
 
 async function toggleResolved(p) {
-  try { await problemsCol.doc(p.id).update({ resolved: !p.resolved }); }
+  try {
+    await problemsCol.doc(p.id).update({ resolved: !p.resolved });
+    showToast(p.resolved ? '↩️ Incidència reoberta' : '✅ Marcada com a resolta');
+  }
   catch (err) { alert("No s'ha pogut actualitzar l'estat: " + err.message); }
 }
 
@@ -2188,6 +2270,48 @@ document.getElementById('more-toggle-btn').addEventListener('click', () => {
 
 /* ---------- init ---------- */
 showZoneLayer('barris');
+/* ---------- char counter títol ---------- */
+document.getElementById('form-title').addEventListener('input', (e) => {
+  const n = e.target.value.length;
+  const el = document.getElementById('title-counter');
+  el.textContent = n + ' / 60';
+  el.classList.toggle('warn', n > 45);
+  // unsaved dot
+  const dot = document.querySelector('#modal-title .unsaved');
+  if (dot) dot.style.display = 'inline-block';
+});
+
+/* ---------- shake si no hi ha títol ---------- */
+function shakeField(el) {
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+  setTimeout(() => el.classList.remove('shake'), 400);
+}
+
+/* ---------- títol del document dinàmic ---------- */
+function updateDocTitle() {
+  const n = problems.filter(p => !p.resolved).length;
+  document.title = n > 0 ? `(${n}) Sant Feliu, Carrer a Carrer` : 'Sant Feliu, Carrer a Carrer';
+}
+
+/* ---------- back to top ---------- */
+const sidebarEl = document.querySelector('.sidebar');
+const backToTop = document.getElementById('back-to-top');
+sidebarEl.addEventListener('scroll', () => {
+  backToTop.classList.toggle('visible', sidebarEl.scrollTop > 200);
+});
+backToTop.addEventListener('click', () => sidebarEl.scrollTo({ top: 0, behavior: 'smooth' }));
+
+/* ---------- unsaved dot al modal title ---------- */
+document.getElementById('modal-overlay').addEventListener('transitionend', () => {
+  if (!document.getElementById('modal-overlay').classList.contains('open')) {
+    const dot = document.querySelector('#modal-title .unsaved');
+    if (dot) dot.remove();
+  }
+});
+
+
 </script>
 </body>
 </html>
