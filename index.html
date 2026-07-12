@@ -820,12 +820,12 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const storage = firebase.storage();
-const problemsCol = db.collection('problems');
-const categoriesDocRef = db.collection('config').doc('categories');
-const customZonesDocRef = db.collection('config').doc('customZones');
-const usersDocRef = db.collection('config').doc('users');
+const problemsCol = db.collection(COLLECTION_PROBLEMS);
+const categoriesDocRef = db.collection(COLLECTION_CONFIG).doc('categories');
+const customZonesDocRef = db.collection(COLLECTION_CONFIG).doc('customZones');
+const usersDocRef = db.collection(COLLECTION_CONFIG).doc('users');
 
-const syncStatusEl = document.getElementById('sync-status');
+const syncStatusEl = DOM.syncStatus;
 function setSyncStatus(online) {
   syncStatusEl.innerHTML = online
     ? '<span class="sync-dot"></span> En directe'
@@ -922,8 +922,8 @@ function setLoggedInUser(user) {
   currentUser = user;
   localStorage.setItem(SESSION_KEY, user.name);
   document.getElementById('user-badge-name').textContent = user.name;
-  document.getElementById('user-icon-btn').textContent = user.name.charAt(0).toUpperCase();
-  document.getElementById('user-dropdown').classList.remove('open');
+  DOM.userIconBtn.textContent = user.name.charAt(0).toUpperCase();
+  DOM.userDropdown.classList.remove('open');
   hideLogin();
 }
 function tryRestoreSession() {
@@ -952,16 +952,16 @@ function attemptLogin() {
 function doLogout() {
   localStorage.removeItem(SESSION_KEY);
   currentUser = null;
-  document.getElementById('user-dropdown').classList.remove('open');
+  DOM.userDropdown.classList.remove('open');
   showLogin();
 }
-document.getElementById('user-icon-btn').addEventListener('click', (e) => {
+DOM.userIconBtn.addEventListener('click', (e) => {
   e.stopPropagation();
-  document.getElementById('user-dropdown').classList.toggle('open');
+  DOM.userDropdown.classList.toggle('open');
 });
 document.addEventListener('click', (e) => {
   const menu = document.getElementById('user-menu');
-  if (!menu.contains(e.target)) document.getElementById('user-dropdown').classList.remove('open');
+  if (!menu.contains(e.target)) DOM.userDropdown.classList.remove('open');
 });
 document.getElementById('logout-link').addEventListener('click', doLogout);
 document.getElementById('switch-user-link').addEventListener('click', doLogout);
@@ -1137,7 +1137,7 @@ function showZoneLayer(key) {
 }
 
 function updateZoneInfo(name, electionEntry) {
-  const el = document.getElementById('zone-info');
+  const el = DOM.zoneInfo;
   if (!name) {
     selectedZoneName = null;
     const total = problems.length;
@@ -1223,7 +1223,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 /* ---------- categories select (problem form) ---------- */
 function renderCategorySelect() {
-  const catSelect = document.getElementById('form-category');
+  const catSelect = DOM.formCategory;
   const prev = catSelect.value;
   catSelect.innerHTML = '';
   categories.forEach(c => {
@@ -1236,7 +1236,7 @@ function renderCategorySelect() {
 renderCategorySelect();
 
 function renderZoneOverrideSelect() {
-  const sel = document.getElementById('form-zone-override');
+  const sel = DOM.formZoneOverride;
   const prev = sel.value;
   sel.innerHTML = '<option value="">(detecció automàtica)</option>';
   customZones.forEach(z => {
@@ -1360,8 +1360,8 @@ let pendingLatLng = null;
 let editingProblemId = null;
 
 function setCreatedByField(value) {
-  const input = document.getElementById('form-createdby');
-  const display = document.getElementById('form-createdby-display');
+  const input = DOM.formCreatedby;
+  const display = DOM.formCreatedbyDisplay;
   const isAdmin = !!(currentUser && currentUser.admin);
   input.value = value || '';
   if (isAdmin) {
@@ -1378,51 +1378,103 @@ function openProblemForm(latlng) {
   editingProblemId = null;
   pendingLatLng = latlng;
   document.getElementById('modal-title').innerHTML = 'Nova problemàtica';
-  document.getElementById('form-save').textContent = 'Afegir';
-  document.getElementById('form-delete').style.display = 'none';
-  document.getElementById('form-resolved-label').style.display = 'none';
-  document.getElementById('form-relocate').style.display = 'none';
-  document.getElementById('form-title').value = '';
-  document.getElementById('form-desc').value = '';
+  DOM.formSave.textContent = 'Afegir';
+  DOM.formDelete.style.display = 'none';
+  DOM.formResolvedLabel.style.display = 'none';
+  DOM.formRelocate.style.display = 'none';
+  DOM.formTitle.value = '';
+  DOM.formDesc.value = '';
   setCreatedByField(currentUser ? currentUser.name : '');
-  document.getElementById('form-responsible').value = '';
-  document.getElementById('form-priority').value = 'mitja';
-  document.getElementById('form-zone-override').value = '';
-  document.getElementById('form-photo').value = '';
-  document.getElementById('form-photo-preview').style.display = 'none';
+  DOM.formResponsible.value = '';
+  DOM.formPriority.value = 'mitja';
+  DOM.formZoneOverride.value = '';
+  DOM.formPhoto.value = '';
+  DOM.formPhotoPreview.style.display = 'none';
   pendingPhotoFiles = [];
-  document.getElementById('form-photo-previews').innerHTML = '';
-  document.getElementById('upload-hint').textContent = '';
-  if (categories.length) document.getElementById('form-category').value = categories[0].key;
-  document.getElementById('modal-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('form-title').focus(), 50);
+  DOM.formPhotoPreviews.innerHTML = '';
+  DOM.uploadHint.textContent = '';
+  if (categories.length) DOM.formCategory.value = categories[0].key;
+  DOM.modalOverlay.classList.add('open');
+  setTimeout(() => DOM.formTitle.focus(), 50);
 }
 
 function openEditForm(p) {
   editingProblemId = p.id;
   pendingLatLng = { lat: p.lat, lng: p.lng };
   document.getElementById('modal-title').innerHTML = 'Editar problemàtica';
-  document.getElementById('form-save').textContent = 'Desar canvis';
-  document.getElementById('form-delete').style.display = 'block';
-  document.getElementById('form-relocate').style.display = 'block';
-  document.getElementById('form-resolved-label').style.display = 'flex';
-  document.getElementById('form-resolved').checked = !!p.resolved;
-  document.getElementById('form-title').value = p.title || '';
-  document.getElementById('form-desc').value = p.desc || '';
+  DOM.formSave.textContent = 'Desar canvis';
+  DOM.formDelete.style.display = 'block';
+  DOM.formRelocate.style.display = 'block';
+  DOM.formResolvedLabel.style.display = 'flex';
+  DOM.formResolved.checked = !!p.resolved;
+  DOM.formTitle.value = p.title || '';
+  DOM.formDesc.value = p.desc || '';
   setCreatedByField(p.createdBy || '');
-  document.getElementById('form-responsible').value = p.responsible || '';
-  document.getElementById('form-priority').value = p.priority || 'mitja';
-  document.getElementById('form-zone-override').value = p.customZone || '';
-  document.getElementById('form-photo').value = '';
-  document.getElementById('upload-hint').textContent = '';
+  DOM.formResponsible.value = p.responsible || '';
+  DOM.formPriority.value = p.priority || 'mitja';
+  DOM.formZoneOverride.value = p.customZone || '';
+  DOM.formPhoto.value = '';
+  DOM.uploadHint.textContent = '';
   pendingPhotoFiles = [];
-  document.getElementById('form-photo-previews').innerHTML = '';
-  const preview = document.getElementById('form-photo-preview');
+  DOM.formPhotoPreviews.innerHTML = '';
+  const preview = DOM.formPhotoPreview;
   if (p.photoURL) { preview.src = p.photoURL; preview.style.display = 'block'; }
   else { preview.style.display = 'none'; }
-  document.getElementById('form-category').value = p.category || (categories[0] && categories[0].key) || '';
-  document.getElementById('modal-overlay').classList.add('open');
+  DOM.formCategory.value = p.category || (categories[0] && categories[0].key) || '';
+  DOM.modalOverlay.classList.add('open');
 }
+
+
+
+
+/* ---------- constants ---------- */
+const COLLECTION_PROBLEMS  = 'problems';
+const COLLECTION_CONFIG    = 'config';
+
+
+const MAX_PHOTOS_PER_INCIDENT = 5;
+const MAX_PHOTO_QUEUE      = 20;
+
+/* ---------- utilitats ---------- */
+const escHtml = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ---------- DOM cache ---------- */
+const $ = (id) => document.getElementById(id);
+const DOM = {
+  modalOverlay:     $('modal-overlay'),
+  relocateBanner:   $('relocate-banner'),
+  relocateBannerText: $('relocate-banner-text'),
+  photoSkip:        $('photo-skip'),
+  formTitle:        $('form-title'),
+  formDesc:         $('form-desc'),
+  formCategory:     $('form-category'),
+  formPriority:     $('form-priority'),
+  formZoneOverride: $('form-zone-override'),
+  formPhoto:        $('form-photo'),
+  formPhotoPreviews:$('form-photo-previews'),
+  formPhotoPreview: $('form-photo-preview'),
+  formCreatedby:    $('form-createdby'),
+  formCreatedbyDisplay: $('form-createdby-display'),
+  formResponsible:  $('form-responsible'),
+  formResolved:     $('form-resolved'),
+  formResolvedLabel:$('form-resolved-label'),
+  formSave:         $('form-save'),
+  formDelete:       $('form-delete'),
+  formRelocate:     $('form-relocate'),
+  titleCounter:     $('title-counter'),
+  uploadHint:       $('upload-hint'),
+  userDropdown:     $('user-dropdown'),
+  userIconBtn:      $('user-icon-btn'),
+  lightbox:         $('lightbox'),
+  lightboxImg:      $('lightbox-img'),
+  lightboxNav:      $('lightbox-nav'),
+  reportContent:    $('report-content'),
+  toast:            $('toast'),
+  toastMsg:         $('toast-msg'),
+  toastUndo:        $('toast-undo'),
+  zoneInfo:         $('zone-info'),
+  syncStatus:       $('sync-status'),
+};
 
 let relocating = false;
 let pickingPhotoLocation = false;
@@ -1459,9 +1511,9 @@ async function processNextPhoto() {
   } else {
     pendingPhotoFile = file;
     pickingPhotoLocation = true;
-    document.getElementById('relocate-banner-text').textContent = `📍 Foto ${photoQueueIndex + 1}/${photoQueue.length} sense ubicació. Clica el mapa on col·locar la incidència.`;
-    document.getElementById('relocate-banner').style.display = 'block';
-    document.getElementById('photo-skip').style.display = photoQueue.length > 1 ? 'inline' : 'none';
+    DOM.relocateBannerText.textContent = `📍 Foto ${photoQueueIndex + 1}/${photoQueue.length} sense ubicació. Clica el mapa on col·locar la incidència.`;
+    DOM.relocateBanner.style.display = 'block';
+    DOM.photoSkip.style.display = photoQueue.length > 1 ? 'inline' : 'none';
     map.getContainer().style.cursor = 'crosshair';
   }
 }
@@ -1479,7 +1531,7 @@ map.on('click', (e) => {
     pickingPhotoLocation = false;
     pendingPhotoFile = null;
     map.getContainer().style.cursor = addMode ? 'crosshair' : '';
-    document.getElementById('relocate-banner').style.display = 'none';
+    DOM.relocateBanner.style.display = 'none';
     placePhotoFileAndOpenForm(file, e.latlng);
     return;
   }
@@ -1487,19 +1539,19 @@ map.on('click', (e) => {
     pendingLatLng = e.latlng;
     relocating = false;
     map.getContainer().style.cursor = addMode ? 'crosshair' : '';
-    document.getElementById('relocate-banner').style.display = 'none';
-    document.getElementById('modal-overlay').classList.add('open');
+    DOM.relocateBanner.style.display = 'none';
+    DOM.modalOverlay.classList.add('open');
     return;
   }
   if (!addMode) return;
   openProblemForm(e.latlng);
 });
 
-document.getElementById('form-relocate').addEventListener('click', () => {
+DOM.formRelocate.addEventListener('click', () => {
   relocating = true;
-  document.getElementById('modal-overlay').classList.remove('open');
-  document.getElementById('relocate-banner-text').textContent = '📍 Clica el mapa per establir la nova ubicació';
-  document.getElementById('relocate-banner').style.display = 'block';
+  DOM.modalOverlay.classList.remove('open');
+  DOM.relocateBannerText.textContent = '📍 Clica el mapa per establir la nova ubicació';
+  DOM.relocateBanner.style.display = 'block';
   map.getContainer().style.cursor = 'crosshair';
 });
 document.getElementById('relocate-cancel').addEventListener('click', () => {
@@ -1510,17 +1562,17 @@ document.getElementById('relocate-cancel').addEventListener('click', () => {
   photoQueue = [];
   photoQueueIndex = 0;
   updatePhotoBtnLabel();
-  document.getElementById('relocate-banner').style.display = 'none';
-  document.getElementById('photo-skip').style.display = 'none';
+  DOM.relocateBanner.style.display = 'none';
+  DOM.photoSkip.style.display = 'none';
   map.getContainer().style.cursor = addMode ? 'crosshair' : '';
-  if (wasRelocating) document.getElementById('modal-overlay').classList.add('open');
+  if (wasRelocating) DOM.modalOverlay.classList.add('open');
 });
 
-document.getElementById('photo-skip').addEventListener('click', () => {
+DOM.photoSkip.addEventListener('click', () => {
   pickingPhotoLocation = false;
   pendingPhotoFile = null;
-  document.getElementById('photo-skip').style.display = 'none';
-  document.getElementById('relocate-banner').style.display = 'none';
+  DOM.photoSkip.style.display = 'none';
+  DOM.relocateBanner.style.display = 'none';
   map.getContainer().style.cursor = addMode ? 'crosshair' : '';
   photoQueueIndex++;
   setTimeout(processNextPhoto, 100);
@@ -1579,7 +1631,7 @@ document.getElementById('photo-quick-input').addEventListener('change', async (e
   if (!files.length) return;
   e.target.value = '';
 
-  const limited = files.slice(0, 20);
+  const limited = files.slice(0, MAX_PHOTO_QUEUE);
   photoQueue = limited;
   photoQueueIndex = 0;
   processNextPhoto();
@@ -1594,9 +1646,9 @@ document.getElementById('geo-btn').addEventListener('click', () => {
   });
 });
 
-document.getElementById('form-photo').addEventListener('change', (e) => {
+DOM.formPhoto.addEventListener('change', (e) => {
   const file = e.target.files[0];
-  const preview = document.getElementById('form-photo-preview');
+  const preview = DOM.formPhotoPreview;
   if (file) {
     preview.src = URL.createObjectURL(file);
     preview.style.display = 'block';
@@ -1606,12 +1658,12 @@ document.getElementById('form-photo').addEventListener('change', (e) => {
 });
 
 document.getElementById('form-cancel').onclick = () => {
-  document.getElementById('modal-overlay').classList.remove('open');
+  DOM.modalOverlay.classList.remove('open');
   pendingLatLng = null;
   editingProblemId = null;
 };
 
-document.getElementById('form-delete').onclick = async () => {
+DOM.formDelete.onclick = async () => {
   if (!editingProblemId) return;
   if (!confirm('Segur que vols eliminar aquesta problemàtica?')) return;
   try {
@@ -1619,7 +1671,7 @@ document.getElementById('form-delete').onclick = async () => {
     const deletedData = { ...problems.find(p => p.id === deletedId) };
     delete deletedData.id;
     await problemsCol.doc(deletedId).delete();
-    document.getElementById('modal-overlay').classList.remove('open');
+    DOM.modalOverlay.classList.remove('open');
     pendingLatLng = null;
     editingProblemId = null;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1633,24 +1685,24 @@ document.getElementById('form-delete').onclick = async () => {
   } catch (err) { alert('No s\'ha pogut eliminar: ' + err.message); }
 };
 
-document.getElementById('form-save').onclick = async () => {
-  const title = document.getElementById('form-title').value.trim();
+DOM.formSave.onclick = async () => {
+  const title = DOM.formTitle.value.trim();
   if (!title) {
-    shakeField(document.getElementById('form-title'));
+    shakeField(DOM.formTitle);
     return;
   }
-  if (!pendingLatLng) { document.getElementById('modal-overlay').classList.remove('open'); return; }
-  const category = document.getElementById('form-category').value;
-  const priority = document.getElementById('form-priority').value;
-  const desc = document.getElementById('form-desc').value.trim();
-  const createdBy = document.getElementById('form-createdby').value.trim() || null;
-  const responsible = document.getElementById('form-responsible').value.trim() || null;
-  const resolved = editingProblemId ? document.getElementById('form-resolved').checked : false;
-  const customZone = document.getElementById('form-zone-override').value || null;
+  if (!pendingLatLng) { DOM.modalOverlay.classList.remove('open'); return; }
+  const category = DOM.formCategory.value;
+  const priority = DOM.formPriority.value;
+  const desc = DOM.formDesc.value.trim();
+  const createdBy = DOM.formCreatedby.value.trim() || null;
+  const responsible = DOM.formResponsible.value.trim() || null;
+  const resolved = editingProblemId ? DOM.formResolved.checked : false;
+  const customZone = DOM.formZoneOverride.value || null;
   const zoneNames = computeAllZoneNames(pendingLatLng);
-  const file = document.getElementById('form-photo').files[0];
-  const saveBtn = document.getElementById('form-save');
-  const hint = document.getElementById('upload-hint');
+  const file = DOM.formPhoto.files[0];
+  const saveBtn = DOM.formSave;
+  const hint = DOM.uploadHint;
   saveBtn.disabled = true;
 
   const wasEditingId = editingProblemId;
@@ -1695,7 +1747,7 @@ document.getElementById('form-save').onclick = async () => {
 
   saveBtn.disabled = false;
   hint.textContent = '';
-  document.getElementById('modal-overlay').classList.remove('open');
+  DOM.modalOverlay.classList.remove('open');
   const wasEditing = !!editingProblemId;
   pendingLatLng = null;
   editingProblemId = null;
@@ -1809,10 +1861,10 @@ function renderAllMarkers() {
     const responsibleHtml = p.responsible ? `<div style="color:#9aa6c0;font-size:11px">Responsable: ${p.responsible}</div>` : '';
     marker.bindPopup(`
       <div style="min-width:180px;max-width:230px;font-family:-apple-system,'Segoe UI',sans-serif">
-        <div style="font-weight:600;font-size:13px;margin-bottom:5px">${p.title} ${prioBadge}</div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:5px">${escHtml(p.title)} ${prioBadge}</div>
         <span style="display:inline-block;background:${cat.color};color:${readableTextColor(cat.color)};font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px">${cat.label}</span>
         ${zoneShown ? `<span style="color:#9aa6c0;font-size:11px;margin-left:5px">${zoneShown}</span>` : ''}
-        ${p.desc ? `<div style="font-size:12px;margin-top:6px;color:#9aa6c0">${p.desc}</div>` : ''}
+        ${p.desc ? `<div style="font-size:12px;margin-top:6px;color:#9aa6c0">${escHtml(p.desc)}</div>` : ''}
         ${photoHtml}${creatorHtml}${responsibleHtml}
       </div>
     `, { maxWidth: 260 });
@@ -1895,12 +1947,12 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
           <div class="ptitle">${p.title} ${prioBadge}</div>
           <span class="pcat" style="background:${cat.color};color:${readableTextColor(cat.color)}">${cat.label}</span>
           ${zoneShown ? `<div class="pzone">${zoneShown}</div>` : ''}
-          ${p.desc ? `<div class="pdesc">${p.desc}</div>` : ''}
+          ${p.desc ? `<div class="pdesc">${escHtml(p.desc)}</div>` : ''}
         </div>
         ${thumbHtml}
       </div>
-      ${p.createdBy ? `<div class="creator-tag">Creat per: ${p.createdBy}</div>` : ''}
-      ${p.responsible ? `<div class="creator-tag">Responsable: ${p.responsible}</div>` : ''}
+      ${p.createdBy ? `<div class="creator-tag">Creat per: ${escHtml(p.createdBy)}</div>` : ''}
+      ${p.responsible ? `<div class="creator-tag">Responsable: ${escHtml(p.responsible)}</div>` : ''}
     `;
     // galeria fotos si n'hi ha més d'una
     if (Array.isArray(p.photoURLs) && p.photoURLs.length > 1) {
@@ -1941,7 +1993,7 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
     const shareBtn = document.createElement('span');
     shareBtn.className = 'share-btn';
     shareBtn.textContent = '🔗 Compartir';
-    shareBtn.addEventListener('click', (e) => {
+    shareBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const text = [
         p.title,
@@ -1951,10 +2003,11 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
         p.createdBy ? 'Creat per: ' + p.createdBy : '',
         p.responsible ? 'Responsable: ' + p.responsible : ''
       ].filter(Boolean).join('\n');
-      navigator.clipboard.writeText(text).then(() => {
+      try {
+        await navigator.clipboard.writeText(text);
         shareBtn.textContent = '✓ Copiat!';
         setTimeout(() => { shareBtn.textContent = '🔗 Compartir'; }, 2000);
-      });
+      } catch(e) { /* silenced */ }
     });
 
     card.appendChild(edit);
@@ -2004,8 +2057,8 @@ document.addEventListener('keydown', (e) => {
   if (relocating || pickingPhotoLocation) {
     relocating = false; pickingPhotoLocation = false; pendingPhotoFile = null;
     photoQueue = []; photoQueueIndex = 0; updatePhotoBtnLabel();
-    document.getElementById('relocate-banner').style.display = 'none';
-    document.getElementById('photo-skip').style.display = 'none';
+    DOM.relocateBanner.style.display = 'none';
+    DOM.photoSkip.style.display = 'none';
     map.getContainer().style.cursor = addMode ? 'crosshair' : '';
   }
 });
@@ -2019,9 +2072,9 @@ let toastTimer = null;
 let undoCallback = null;
 
 function showToast(msg, duration = 2500, undoCb = null) {
-  const t = document.getElementById('toast');
-  const msgEl = document.getElementById('toast-msg');
-  const undoEl = document.getElementById('toast-undo');
+  const t = DOM.toast;
+  const msgEl = DOM.toastMsg;
+  const undoEl = DOM.toastUndo;
   msgEl.textContent = msg;
   undoCallback = undoCb;
   undoEl.style.display = undoCb ? 'inline' : 'none';
@@ -2029,9 +2082,9 @@ function showToast(msg, duration = 2500, undoCb = null) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.classList.remove('show'); undoCallback = null; }, duration);
 }
-document.getElementById('toast-undo').addEventListener('click', () => {
+DOM.toastUndo.addEventListener('click', () => {
   if (undoCallback) { undoCallback(); undoCallback = null; }
-  document.getElementById('toast').classList.remove('show');
+  DOM.toast.classList.remove('show');
   clearTimeout(toastTimer);
 });
 
@@ -2269,23 +2322,23 @@ document.getElementById('report-btn').onclick = () => {
     text += `\n`;
   });
 
-  document.getElementById('report-content').innerHTML = html || 'Cap dada.';
-  document.getElementById('report-content').dataset.text = text;
+  DOM.reportContent.innerHTML = html || 'Cap dada.';
+  DOM.reportContent.dataset.text = text;
   document.getElementById('report-modal-overlay').classList.add('open');
 };
 document.getElementById('report-close').onclick = () => document.getElementById('report-modal-overlay').classList.remove('open');
 document.getElementById('report-copy').onclick = () => {
-  const text = document.getElementById('report-content').dataset.text || '';
+  const text = DOM.reportContent.dataset.text || '';
   navigator.clipboard.writeText(text).then(() => {
-    document.getElementById('report-copy').textContent = '✓ Copiat!';
-    setTimeout(() => { document.getElementById('report-copy').textContent = '📋 Copiar text'; }, 2000);
+    $('report-copy').textContent = '✓ Copiat!';
+    setTimeout(() => { $('report-copy').textContent = '📋 Copiar text'; }, 2000);
   });
 };
 document.getElementById('report-copy').onclick = () => {
-  const text = document.getElementById('report-content').dataset.text || '';
+  const text = DOM.reportContent.dataset.text || '';
   navigator.clipboard.writeText(text).then(() => {
-    document.getElementById('report-copy').textContent = '✓ Copiat!';
-    setTimeout(() => { document.getElementById('report-copy').textContent = '📋 Copiar text'; }, 2000);
+    $('report-copy').textContent = '✓ Copiat!';
+    setTimeout(() => { $('report-copy').textContent = '📋 Copiar text'; }, 2000);
   });
 };
 
@@ -2486,9 +2539,9 @@ document.getElementById('more-toggle-btn').addEventListener('click', () => {
 /* ---------- init ---------- */
 showZoneLayer('barris');
 /* ---------- char counter títol ---------- */
-document.getElementById('form-title').addEventListener('input', (e) => {
+DOM.formTitle.addEventListener('input', (e) => {
   const n = e.target.value.length;
-  const el = document.getElementById('title-counter');
+  const el = DOM.titleCounter;
   el.textContent = n + ' / 60';
   el.classList.toggle('warn', n > 45);
   // unsaved dot
@@ -2519,8 +2572,8 @@ sidebarEl.addEventListener('scroll', () => {
 backToTop.addEventListener('click', () => sidebarEl.scrollTo({ top: 0, behavior: 'smooth' }));
 
 /* ---------- unsaved dot al modal title ---------- */
-document.getElementById('modal-overlay').addEventListener('transitionend', () => {
-  if (!document.getElementById('modal-overlay').classList.contains('open')) {
+DOM.modalOverlay.addEventListener('transitionend', () => {
+  if (!DOM.modalOverlay.classList.contains('open')) {
     const dot = document.querySelector('#modal-title .unsaved');
     if (dot) dot.remove();
   }
@@ -2558,7 +2611,7 @@ geocoderInput.addEventListener('input', () => {
         });
       }
       geocoderResults.classList.add('open');
-    } catch(e) {}
+    } catch(e) { /* silenced */ }
   }, 400);
 });
 
@@ -2580,12 +2633,12 @@ function openLightbox(urls, startIdx = 0) {
   lightboxUrls = urls;
   lightboxIdx = startIdx;
   renderLightbox();
-  document.getElementById('lightbox').style.display = 'flex';
+  DOM.lightbox.style.display = 'flex';
 }
 
 function renderLightbox() {
-  document.getElementById('lightbox-img').src = lightboxUrls[lightboxIdx];
-  const nav = document.getElementById('lightbox-nav');
+  DOM.lightboxImg.src = lightboxUrls[lightboxIdx];
+  const nav = DOM.lightboxNav;
   nav.innerHTML = '';
   if (lightboxUrls.length > 1) {
     lightboxUrls.forEach((_, i) => {
@@ -2597,18 +2650,18 @@ function renderLightbox() {
   }
 }
 
-document.getElementById('lightbox').addEventListener('click', () => {
-  document.getElementById('lightbox').style.display = 'none';
+DOM.lightbox.addEventListener('click', () => {
+  DOM.lightbox.style.display = 'none';
 });
 document.getElementById('lightbox-close').addEventListener('click', (e) => {
   e.stopPropagation();
-  document.getElementById('lightbox').style.display = 'none';
+  DOM.lightbox.style.display = 'none';
 });
 document.addEventListener('keydown', (e) => {
-  if (document.getElementById('lightbox').style.display === 'none') return;
+  if (DOM.lightbox.style.display === 'none') return;
   if (e.key === 'ArrowRight') { lightboxIdx = (lightboxIdx + 1) % lightboxUrls.length; renderLightbox(); }
   if (e.key === 'ArrowLeft') { lightboxIdx = (lightboxIdx - 1 + lightboxUrls.length) % lightboxUrls.length; renderLightbox(); }
-  if (e.key === 'Escape') { document.getElementById('lightbox').style.display = 'none'; }
+  if (e.key === 'Escape') { DOM.lightbox.style.display = 'none'; }
 });
 
 
