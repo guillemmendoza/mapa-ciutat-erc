@@ -47,16 +47,25 @@
 
   /* ─── HEADER ─── */
   header {
-    padding: 0 14px; height: 52px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-    background: var(--bg); backdrop-filter: blur(8px);
+    padding: 0; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    background: var(--bg); display: flex; flex-direction: column;
+    overflow: visible; position: relative; z-index: 200;
+  }
+  .header-row1 {
+    padding: 0 14px; height: 48px;
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-row2 {
+    padding: 0 14px; height: 40px;
+    display: flex; align-items: center; gap: 6px;
+    background: var(--bg-secondary);
   }
   header h1 {
     font-size: 13px; font-weight: 700; letter-spacing: -0.01em;
     white-space: nowrap; color: var(--text); flex-shrink: 0;
   }
-  .header-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-  .icon-btn { padding: 5px 8px !important; font-size: 14px !important; }
+  .header-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
   .header-spacer { flex: 1; min-width: 4px; }
   .sync-status { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
 
@@ -98,8 +107,8 @@
   /* opcions avançades */
   .header-extra {
     display: none; width: 100%; gap: 6px; flex-wrap: wrap;
-    padding: 10px 20px; border-top: 1px solid var(--border);
-    background: var(--bg-secondary);
+    padding: 10px 14px; border-top: 1px solid var(--border);
+    background: var(--bg-tertiary);
   }
   .header-extra.open { display: flex; }
 
@@ -591,9 +600,10 @@
   }
   #geocoder-input:focus { outline: none; border-color: var(--accent); width: 200px; }
   #geocoder-results {
-    position: absolute; top: 34px; left: 0; right: 0; background: var(--bg-secondary);
-    border: 1px solid var(--border); border-radius: var(--radius-sm);
-    z-index: 500; max-height: 200px; overflow-y: auto; display: none;
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); z-index: 9999;
+    max-height: 220px; overflow-y: auto; display: none;
     box-shadow: var(--shadow);
   }
   #geocoder-results.open { display: block; }
@@ -670,37 +680,44 @@
 </div>
 <div class="app">
   <header>
-    <h1>Sant Feliu, Carrer a Carrer</h1>
-    <div class="layer-group" id="layer-group">
-      <button class="layer-btn" data-layer="none">Cap</button>
-      <button class="layer-btn" data-layer="districtes">Districtes</button>
-      <button class="layer-btn active" data-layer="barris">Barris</button>
-      <button class="layer-btn" data-layer="seccions">Seccions</button>
-    </div>
-    <div class="header-actions">
-      <button class="mode-toggle" id="mode-toggle">+ Afegir</button>
-      <button class="small-btn icon-btn" id="geo-btn" title="Incidència a la meva ubicació">📍</button>
-      <button class="small-btn icon-btn" id="photo-quick-btn" title="Incidència des de fotografia">📷</button>
-      <input id="photo-quick-input" type="file" accept="image/*" multiple style="display:none" />
-      <button class="small-btn icon-btn" id="heatmap-btn" title="Mapa de calor">🌡️</button>
-    </div>
-    <div class="geocoder-wrap" id="geocoder-wrap">
-      <input type="text" id="geocoder-input" placeholder="🔍 Cerca una adreça..." />
-      <div id="geocoder-results"></div>
-    </div>
-    <div class="header-spacer"></div>
-    <div class="sync-status" id="sync-status"><span class="sync-dot"></span></div>
-    <button class="small-btn icon-btn" id="theme-toggle" title="Mode clar/fosc">☀️</button>
-    <button class="small-btn icon-btn" id="mobile-view-toggle" title="Veure llista">📋</button>
-    <div class="user-menu" id="user-menu">
-      <button class="user-icon-btn" id="user-icon-btn"></button>
-      <div class="user-dropdown" id="user-dropdown">
-        <div class="udname">Connectat com: <span id="user-badge-name"></span></div>
-        <div class="ud-action" id="switch-user-link">Canviar d'usuari</div>
-        <div class="ud-action" id="logout-link">Sortir</div>
+    <!-- Fila 1: identitat + zones + cerca + usuari -->
+    <div class="header-row1">
+      <h1>Sant Feliu, Carrer a Carrer</h1>
+      <div class="header-sep"></div>
+      <div class="layer-group" id="layer-group">
+        <button class="layer-btn" data-layer="none">Cap</button>
+        <button class="layer-btn" data-layer="districtes">Districtes</button>
+        <button class="layer-btn active" data-layer="barris">Barris</button>
+        <button class="layer-btn" data-layer="seccions">Seccions censals</button>
+      </div>
+      <div class="header-spacer"></div>
+      <div class="geocoder-wrap" id="geocoder-wrap">
+        <input type="text" id="geocoder-input" placeholder="🔍 Cerca una adreça..." />
+        <div id="geocoder-results"></div>
+      </div>
+      <div class="sync-status" id="sync-status"><span class="sync-dot"></span> En directe</div>
+      <button class="small-btn" id="theme-toggle" title="Mode clar/fosc">☀️ Mode</button>
+      <div class="user-menu" id="user-menu">
+        <button class="user-icon-btn" id="user-icon-btn"></button>
+        <div class="user-dropdown" id="user-dropdown">
+          <div class="udname">Connectat com: <span id="user-badge-name"></span></div>
+          <div class="ud-action" id="switch-user-link">Canviar d'usuari</div>
+          <div class="ud-action" id="logout-link">Sortir</div>
+        </div>
       </div>
     </div>
-    <button class="small-btn" id="more-toggle-btn">⚙️</button>
+    <!-- Fila 2: accions principals + opcions avançades -->
+    <div class="header-row2">
+      <button class="mode-toggle" id="mode-toggle">+ Afegir incidència</button>
+      <div class="header-sep"></div>
+      <button class="small-btn" id="geo-btn">📍 Ubicació actual</button>
+      <button class="small-btn" id="photo-quick-btn">📷 Des de fotografia</button>
+      <input id="photo-quick-input" type="file" accept="image/*" multiple style="display:none" />
+      <button class="small-btn" id="heatmap-btn">🌡️ Mapa de calor</button>
+      <button class="small-btn" id="mobile-view-toggle">📋 Veure llista</button>
+      <div class="header-spacer"></div>
+      <button class="small-btn" id="more-toggle-btn">⚙️ Opcions avançades</button>
+    </div>
     <div class="header-extra" id="header-extra">
       <button class="small-btn" id="elections-btn">🗳️ Resultats electorals</button>
       <button class="small-btn" id="categories-btn">🏷️ Categories</button>
