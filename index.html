@@ -888,6 +888,10 @@ let usersLoaded = false;
 let currentUser = null;
 const SESSION_KEY = 'santfeliu_currentUser';
 
+// pobla el select immediatament amb els usuaris per defecte
+// (es tornarà a cridar quan Firebase respongui)
+populateLoginSelect();
+
 usersDocRef.onSnapshot(snap => {
   if (snap.exists && Array.isArray(snap.data().list) && snap.data().list.length) {
     appUsers = snap.data().list;
