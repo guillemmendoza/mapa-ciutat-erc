@@ -17,6 +17,8 @@
 <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root {
     --bg: #070f20;
@@ -529,6 +531,37 @@
   .card-photos img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; cursor: pointer; transition: opacity 0.15s; }
   .card-photos img:hover { opacity: 0.85; }
 
+
+  /* geocodificació */
+  .geocoder-wrap { position: relative; }
+  #geocoder-input {
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--bg-secondary); color: var(--text);
+    padding: 5px 12px; font-size: 12px; font-family: inherit; width: 200px;
+    transition: border-color 0.15s, width 0.2s;
+  }
+  #geocoder-input:focus { outline: none; border-color: var(--accent); width: 240px; }
+  #geocoder-results {
+    position: absolute; top: 34px; left: 0; right: 0; background: var(--bg-secondary);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    z-index: 500; max-height: 200px; overflow-y: auto; display: none;
+    box-shadow: var(--shadow);
+  }
+  #geocoder-results.open { display: block; }
+  .geocoder-item { padding: 8px 12px; font-size: 12px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+  .geocoder-item:hover { background: var(--bg-tertiary); color: var(--text); }
+  .geocoder-item:last-child { border-bottom: none; }
+
+  /* lightbox */
+  #lightbox { cursor: zoom-out; }
+  .lightbox-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); cursor: pointer; transition: background 0.15s; }
+  .lightbox-dot.active { background: #fff; }
+
+  /* stats canvas */
+  .stats-chart-wrap { margin-bottom: 24px; }
+  .stats-chart-wrap h3 { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .stats-chart-wrap canvas { max-height: 200px; }
+
   /* ─── SIDEBAR SCROLLBAR ─── */
   .sidebar::-webkit-scrollbar { width: 3px; }
   .sidebar::-webkit-scrollbar-track { background: transparent; }
@@ -551,7 +584,12 @@
 
 </head>
 <body>
-<div id="toast"></div>
+<div id="toast"><span id="toast-msg"></span><span id="toast-undo" style="display:none;margin-left:10px;text-decoration:underline;cursor:pointer;font-weight:600">Desfer</span></div>
+<div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:4000;align-items:center;justify-content:center;flex-direction:column">
+  <img id="lightbox-img" style="max-width:90vw;max-height:85vh;border-radius:12px;object-fit:contain">
+  <div id="lightbox-nav" style="display:flex;gap:16px;margin-top:16px"></div>
+  <span id="lightbox-close" style="position:absolute;top:20px;right:24px;font-size:28px;cursor:pointer;color:#fff;opacity:0.7">×</span>
+</div>
 <div id="login-overlay">
   <div class="login-box">
     <div class="login-icon" style="background:transparent;width:80px;height:48px;border-radius:0">
@@ -599,6 +637,10 @@
         <div class="ud-action" id="logout-link">Sortir</div>
       </div>
     </div>
+    <div class="geocoder-wrap" id="geocoder-wrap">
+      <input type="text" id="geocoder-input" placeholder="Cerca una adreça..." />
+      <div id="geocoder-results"></div>
+    </div>
     <button class="small-btn" id="theme-toggle" title="Mode clar/fosc">☀️</button>
     <div class="sync-status" id="sync-status"><span class="sync-dot"></span> Connectant...</div>
     <button class="small-btn" id="more-toggle-btn">⚙️ Opcions avançades</button>
@@ -633,8 +675,10 @@
         </div>
         <div class="filter-bar">
           <select id="filter-status"><option value="">Totes (obertes + resoltes)</option><option value="open">Només obertes</option><option value="resolved">Només resoltes</option></select>
+          <select id="filter-priority"><option value="">Totes les prioritats</option><option value="alta">Alta</option><option value="mitja">Mitja</option><option value="baixa">Baixa</option></select>
           <select id="filter-cat"><option value="">Totes les categories</option></select>
           <select id="filter-zone"><option value="">Tots els barris</option></select>
+          <select id="filter-responsible"><option value="">Tots els responsables</option></select>
           <button id="filter-clear">✕ Netejar filtres</button>
         </div>
         </div><!-- /sidebar-sticky -->
@@ -750,6 +794,7 @@
     <div id="report-content" style="font-size:13px;line-height:1.6;max-height:60vh;overflow-y:auto"></div>
     <div class="modal-actions">
       <button id="report-copy">📋 Copiar text</button>
+      <button id="report-pdf">📄 Exportar PDF</button>
       <button id="report-close">Tancar</button>
     </div>
   </div>
@@ -1570,16 +1615,21 @@ document.getElementById('form-delete').onclick = async () => {
   if (!editingProblemId) return;
   if (!confirm('Segur que vols eliminar aquesta problemàtica?')) return;
   try {
-    await problemsCol.doc(editingProblemId).delete();
+    const deletedId = editingProblemId;
+    const deletedData = { ...problems.find(p => p.id === deletedId) };
+    delete deletedData.id;
+    await problemsCol.doc(deletedId).delete();
     document.getElementById('modal-overlay').classList.remove('open');
     pendingLatLng = null;
     editingProblemId = null;
-    // navega a la llista i mostra feedback
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelector('[data-tab="list"]').classList.add('active');
     document.getElementById('tab-list').classList.add('active');
-    showToast('✓ Incidència eliminada');
+    showToast('✓ Incidència eliminada', 5000, async () => {
+      await problemsCol.doc(deletedId).set(deletedData);
+      showToast('↩️ Incidència recuperada');
+    });
   } catch (err) { alert('No s\'ha pogut eliminar: ' + err.message); }
 };
 
@@ -1710,6 +1760,8 @@ let mapShowResolved = false;
 function isFiltered(p) {
   if (filterStatus === 'open' && p.resolved) return false;
   if (filterStatus === 'resolved' && !p.resolved) return false;
+  if (filterPriority && p.priority !== filterPriority) return false;
+  if (filterResponsible && p.responsible !== filterResponsible) return false;
   if (filterCat && p.category !== filterCat) return false;
   if (filterZone) {
     if (filterZone.startsWith('__custom__')) {
@@ -1857,7 +1909,7 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
       p.photoURLs.forEach(url => {
         const img = document.createElement('img');
         img.src = url;
-        img.addEventListener('click', (e) => { e.stopPropagation(); window.open(url, '_blank'); });
+        img.addEventListener('click', (e) => { e.stopPropagation(); openLightbox(p.photoURLs && p.photoURLs.length > 1 ? p.photoURLs : [url], p.photoURLs ? p.photoURLs.indexOf(url) : 0); });
         gallery.appendChild(img);
       });
       card.appendChild(gallery);
@@ -1927,6 +1979,8 @@ let filterCat = '';
 let filterZone = '';
 let filterSearch = '';
 let filterStatus = '';
+let filterPriority = '';
+let filterResponsible = '';
 let sortBy = 'priority';
 
 /* ---------- mode clar/fosc ---------- */
@@ -1958,15 +2012,28 @@ document.addEventListener('keydown', (e) => {
 
 /* ---------- filtre estat ---------- */
 document.getElementById('filter-status').addEventListener('change', (e) => { filterStatus = e.target.value; renderProblemList(); renderAllMarkers(); });
+document.getElementById('filter-priority').addEventListener('change', (e) => { filterPriority = e.target.value; renderProblemList(); renderAllMarkers(); });
+document.getElementById('filter-responsible').addEventListener('change', (e) => { filterResponsible = e.target.value; renderProblemList(); renderAllMarkers(); });
 
 let toastTimer = null;
-function showToast(msg, duration = 2500) {
+let undoCallback = null;
+
+function showToast(msg, duration = 2500, undoCb = null) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
+  const msgEl = document.getElementById('toast-msg');
+  const undoEl = document.getElementById('toast-undo');
+  msgEl.textContent = msg;
+  undoCallback = undoCb;
+  undoEl.style.display = undoCb ? 'inline' : 'none';
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), duration);
+  toastTimer = setTimeout(() => { t.classList.remove('show'); undoCallback = null; }, duration);
 }
+document.getElementById('toast-undo').addEventListener('click', () => {
+  if (undoCallback) { undoCallback(); undoCallback = null; }
+  document.getElementById('toast').classList.remove('show');
+  clearTimeout(toastTimer);
+});
 
 document.getElementById('sort-select').addEventListener('change', (e) => {
   sortBy = e.target.value;
@@ -2025,15 +2092,28 @@ function populateFilters() {
   }
 
   if (prevZone) zoneSel.value = prevZone;
+
+  const respSel = document.getElementById('filter-responsible');
+  const prevResp = respSel.value;
+  respSel.innerHTML = '<option value="">Tots els responsables</option>';
+  const responsibles = [...new Set(problems.map(p => p.responsible).filter(Boolean))].sort();
+  responsibles.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r; opt.textContent = r;
+    respSel.appendChild(opt);
+  });
+  if (prevResp) respSel.value = prevResp;
 }
 
 document.getElementById('filter-cat').addEventListener('change', (e) => { filterCat = e.target.value; renderProblemList(); renderAllMarkers(); });
 document.getElementById('filter-zone').addEventListener('change', (e) => { filterZone = e.target.value; renderProblemList(); renderAllMarkers(); });
 document.getElementById('filter-clear').addEventListener('click', () => {
-  filterCat = ''; filterZone = ''; filterStatus = '';
+  filterCat = ''; filterZone = ''; filterStatus = ''; filterPriority = ''; filterResponsible = '';
   document.getElementById('filter-cat').value = '';
   document.getElementById('filter-zone').value = '';
   document.getElementById('filter-status').value = '';
+  document.getElementById('filter-priority').value = '';
+  document.getElementById('filter-responsible').value = '';
   renderProblemList();
   renderAllMarkers();
 });
@@ -2201,63 +2281,103 @@ document.getElementById('report-copy').onclick = () => {
     setTimeout(() => { document.getElementById('report-copy').textContent = '📋 Copiar text'; }, 2000);
   });
 };
+document.getElementById('report-copy').onclick = () => {
+  const text = document.getElementById('report-content').dataset.text || '';
+  navigator.clipboard.writeText(text).then(() => {
+    document.getElementById('report-copy').textContent = '✓ Copiat!';
+    setTimeout(() => { document.getElementById('report-copy').textContent = '📋 Copiar text'; }, 2000);
+  });
+};
+
+let statsCharts = [];
+function destroyStatsCharts() {
+  statsCharts.forEach(c => c.destroy());
+  statsCharts = [];
+}
 
 function renderStats() {
+  destroyStatsCharts();
   const el = document.getElementById('stats-content');
   if (problems.length === 0) {
     el.innerHTML = '<div class="empty-hint">Encara no hi ha dades per mostrar estadístiques.</div>';
     return;
   }
+
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#9aa6c0';
+  const gridColor = 'rgba(255,255,255,0.06)';
+  const chartDefaults = {
+    responsive: true, maintainAspectRatio: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: textColor, font: { size: 11 } }, grid: { color: gridColor } },
+      y: { ticks: { color: textColor, font: { size: 11 }, precision: 0 }, grid: { color: gridColor } }
+    }
+  };
+
   let html = '';
 
-  html += '<div class="stat-block"><h3>Per prioritat</h3>';
-  const maxPrio = Math.max(...Object.keys(priorityLabels).map(k => problems.filter(p => p.priority === k).length), 1);
-  Object.keys(priorityLabels).forEach(k => {
-    const count = problems.filter(p => p.priority === k).length;
-    const pct = Math.round((count / maxPrio) * 100);
-    const color = { alta: '#A32D2D', mitja: '#854F0B', baixa: '#3B6D11' }[k];
-    html += `<div class="stat-row">
-      <span class="stat-label">${priorityLabels[k]}</span>
-      <span class="stat-bar-wrap"><span class="stat-bar" style="width:${pct}%;background:${color}"></span></span>
-      <span class="stat-num">${count}</span>
-    </div>`;
-  });
-  html += '</div>';
+  // Gràfic pastís: obertes vs resoltes
+  const obertes = problems.filter(p => !p.resolved).length;
+  const resoltes = problems.filter(p => p.resolved).length;
+  html += '<div class="stats-chart-wrap"><h3>Estat general</h3><canvas id="chart-estat"></canvas></div>';
 
-  html += '<div class="stat-block"><h3>Per categoria</h3>';
-  const maxCat = Math.max(...categories.map(c => problems.filter(p => p.category === c.key).length), 1);
-  categories.forEach(c => {
-    const count = problems.filter(p => p.category === c.key).length;
-    const pct = Math.round((count / maxCat) * 100);
-    html += `<div class="stat-row">
-      <span class="stat-label">${c.label}</span>
-      <span class="stat-bar-wrap"><span class="stat-bar" style="width:${pct}%;background:${c.color}"></span></span>
-      <span class="stat-num">${count}</span>
-    </div>`;
-  });
-  html += '</div>';
+  // Gràfic barres: per prioritat
+  html += '<div class="stats-chart-wrap"><h3>Per prioritat</h3><canvas id="chart-prio"></canvas></div>';
 
-  if (activeLayerKey !== 'none') {
-    const zoneCounts = {};
-    problems.forEach(p => { const z = getZoneLabel(p, activeLayerKey); if (z) zoneCounts[z] = (zoneCounts[z] || 0) + 1; });
-    const entries = Object.entries(zoneCounts).sort((a, b) => b[1] - a[1]);
-    const label = { districtes: 'Per districte', barris: 'Per barri', seccions: 'Per secció censal' }[activeLayerKey];
-    html += `<div class="stat-block"><h3>${label}</h3>`;
-    if (entries.length === 0) {
-      html += '<div class="empty-hint">Cap problemàtica amb zona assignada en aquest nivell.</div>';
-    } else {
-      const maxZone = entries[0][1];
-      entries.forEach(([name, count]) => {
-        const pct = Math.round((count / maxZone) * 100);
-        html += `<div class="stat-row">
-          <span class="stat-label" title="${name}">${name}</span>
-          <span class="stat-bar-wrap"><span class="stat-bar" style="width:${pct}%;background:#888780"></span></span>
-          <span class="stat-num">${count}</span>
-        </div>`;
-      });
+  // Gràfic barres: per categoria
+  html += '<div class="stats-chart-wrap"><h3>Per categoria</h3><canvas id="chart-cat"></canvas></div>';
+
+  // Gràfic barres: per barri (top 8)
+  html += '<div class="stats-chart-wrap"><h3>Per barri (top 8)</h3><canvas id="chart-zone"></canvas></div>';
+
+  el.innerHTML = html;
+
+  // --- pastís estat ---
+  statsCharts.push(new Chart(document.getElementById('chart-estat'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Obertes', 'Resoltes'],
+      datasets: [{ data: [obertes, resoltes], backgroundColor: ['#f85838', '#27ae60'], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { color: textColor, font: { size: 11 }, padding: 12 } }
+      }
     }
-    html += '</div>';
-  }
+  }));
+
+  // --- barres prioritat ---
+  const prioColors = { alta: '#c0392b', mitja: '#e67e22', baixa: '#27ae60' };
+  const prioData = Object.keys(priorityLabels).map(k => problems.filter(p => p.priority === k && !p.resolved).length);
+  statsCharts.push(new Chart(document.getElementById('chart-prio'), {
+    type: 'bar',
+    data: {
+      labels: Object.values(priorityLabels),
+      datasets: [{ data: prioData, backgroundColor: Object.keys(priorityLabels).map(k => prioColors[k]), borderRadius: 6, borderSkipped: false }]
+    },
+    options: { ...chartDefaults, plugins: { legend: { display: false } } }
+  }));
+
+  // --- barres categoria ---
+  const catLabels = categories.filter(c => problems.some(p => p.category === c.key)).map(c => c.label);
+  const catData = categories.filter(c => problems.some(p => p.category === c.key)).map(c => problems.filter(p => p.category === c.key && !p.resolved).length);
+  const catColors = categories.filter(c => problems.some(p => p.category === c.key)).map(c => c.color);
+  statsCharts.push(new Chart(document.getElementById('chart-cat'), {
+    type: 'bar',
+    data: { labels: catLabels, datasets: [{ data: catData, backgroundColor: catColors, borderRadius: 6, borderSkipped: false }] },
+    options: { ...chartDefaults, plugins: { legend: { display: false } }, indexAxis: 'y' }
+  }));
+
+  // --- barres barri ---
+  const zoneCounts = {};
+  problems.filter(p => !p.resolved).forEach(p => { const z = (p.zoneNames && p.zoneNames.barris) || p.customZone; if (z) zoneCounts[z] = (zoneCounts[z] || 0) + 1; });
+  const topZones = Object.entries(zoneCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  statsCharts.push(new Chart(document.getElementById('chart-zone'), {
+    type: 'bar',
+    data: { labels: topZones.map(z => z[0]), datasets: [{ data: topZones.map(z => z[1]), backgroundColor: '#5b7fa6', borderRadius: 6, borderSkipped: false }] },
+    options: { ...chartDefaults, plugins: { legend: { display: false } }, indexAxis: 'y' }
+  }));
 
   el.innerHTML = html;
 }
@@ -2406,6 +2526,158 @@ document.getElementById('modal-overlay').addEventListener('transitionend', () =>
   }
 });
 
+
+/* ---------- geocodificació ---------- */
+let geocoderTimer = null;
+const geocoderInput = document.getElementById('geocoder-input');
+const geocoderResults = document.getElementById('geocoder-results');
+
+geocoderInput.addEventListener('input', () => {
+  clearTimeout(geocoderTimer);
+  const q = geocoderInput.value.trim();
+  if (q.length < 4) { geocoderResults.classList.remove('open'); return; }
+  geocoderTimer = setTimeout(async () => {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ', Sant Feliu de Llobregat')}&format=json&limit=5&addressdetails=1`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'ca' } });
+      const data = await res.json();
+      geocoderResults.innerHTML = '';
+      if (data.length === 0) {
+        geocoderResults.innerHTML = '<div class="geocoder-item">Cap resultat</div>';
+      } else {
+        data.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'geocoder-item';
+          div.textContent = item.display_name.split(',').slice(0, 3).join(',');
+          div.addEventListener('click', () => {
+            map.setView([parseFloat(item.lat), parseFloat(item.lon)], 18);
+            geocoderInput.value = '';
+            geocoderResults.classList.remove('open');
+          });
+          geocoderResults.appendChild(div);
+        });
+      }
+      geocoderResults.classList.add('open');
+    } catch(e) {}
+  }, 400);
+});
+
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('geocoder-wrap').contains(e.target)) {
+    geocoderResults.classList.remove('open');
+  }
+});
+geocoderInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { geocoderResults.classList.remove('open'); geocoderInput.value = ''; }
+});
+
+
+/* ---------- lightbox ---------- */
+let lightboxUrls = [];
+let lightboxIdx = 0;
+
+function openLightbox(urls, startIdx = 0) {
+  lightboxUrls = urls;
+  lightboxIdx = startIdx;
+  renderLightbox();
+  document.getElementById('lightbox').style.display = 'flex';
+}
+
+function renderLightbox() {
+  document.getElementById('lightbox-img').src = lightboxUrls[lightboxIdx];
+  const nav = document.getElementById('lightbox-nav');
+  nav.innerHTML = '';
+  if (lightboxUrls.length > 1) {
+    lightboxUrls.forEach((_, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'lightbox-dot' + (i === lightboxIdx ? ' active' : '');
+      dot.addEventListener('click', (e) => { e.stopPropagation(); lightboxIdx = i; renderLightbox(); });
+      nav.appendChild(dot);
+    });
+  }
+}
+
+document.getElementById('lightbox').addEventListener('click', () => {
+  document.getElementById('lightbox').style.display = 'none';
+});
+document.getElementById('lightbox-close').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('lightbox').style.display = 'none';
+});
+document.addEventListener('keydown', (e) => {
+  if (document.getElementById('lightbox').style.display === 'none') return;
+  if (e.key === 'ArrowRight') { lightboxIdx = (lightboxIdx + 1) % lightboxUrls.length; renderLightbox(); }
+  if (e.key === 'ArrowLeft') { lightboxIdx = (lightboxIdx - 1 + lightboxUrls.length) % lightboxUrls.length; renderLightbox(); }
+  if (e.key === 'Escape') { document.getElementById('lightbox').style.display = 'none'; }
+});
+
+
+/* ---------- PDF informe per barri ---------- */
+document.getElementById('report-pdf').onclick = () => {
+  if (typeof window.jspdf === 'undefined') { alert('La llibreria PDF no ha carregat. Torna a intentar-ho.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const byBarri = {};
+  problems.forEach(p => {
+    const barri = (p.zoneNames && p.zoneNames.barris) || p.customZone || 'Sense zona';
+    if (!byBarri[barri]) byBarri[barri] = [];
+    byBarri[barri].push(p);
+  });
+
+  doc.setFillColor(7, 15, 32);
+  doc.rect(0, 0, 210, 40, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('Sant Feliu, Carrer a Carrer', 20, 18);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Informe per barri · ' + new Date().toLocaleDateString('ca-ES'), 20, 28);
+
+  let y = 52;
+  doc.setTextColor(13, 21, 32);
+
+  Object.entries(byBarri).sort().forEach(([barri, list]) => {
+    if (y > 260) { doc.addPage(); y = 20; }
+    const obertes = list.filter(p => !p.resolved);
+    const resoltes = list.filter(p => p.resolved);
+    const alta = obertes.filter(p => p.priority === 'alta').length;
+
+    doc.setFillColor(248, 88, 56);
+    doc.rect(20, y - 5, 3, 14, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(13, 21, 32);
+    doc.text(barri, 26, y + 4);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(100, 110, 130);
+    doc.text(`${obertes.length} obertes · ${resoltes.length} resoltes${alta > 0 ? ` · ${alta} d'alta prioritat` : ''}`, 26, y + 11);
+    y += 20;
+
+    obertes.slice(0, 8).forEach(p => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      const cat = categoryOf(p.category).label;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(13, 21, 32);
+      doc.text('• ' + p.title, 28, y);
+      doc.setTextColor(140, 150, 170);
+      doc.text(cat + (p.responsible ? ' · ' + p.responsible : ''), 90, y);
+      y += 6;
+    });
+    if (obertes.length > 8) {
+      doc.setTextColor(140, 150, 170);
+      doc.text(`  ... i ${obertes.length - 8} més`, 28, y);
+      y += 6;
+    }
+    y += 6;
+  });
+
+  doc.save('informe-santfeliu-' + new Date().toISOString().slice(0, 10) + '.pdf');
+};
 
 </script>
 </body>
