@@ -2462,8 +2462,9 @@ function renderStats() {
     return;
   }
 
-  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#9aa6c0';
-  const gridColor = 'rgba(255,255,255,0.06)';
+  const isLight = document.body.classList.contains('light');
+  const textColor = isLight ? '#4a5a72' : '#7f90ad';
+  const gridColor = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
   const chartDefaults = {
     responsive: true, maintainAspectRatio: true,
     plugins: { legend: { display: false } },
@@ -2537,8 +2538,6 @@ function renderStats() {
     data: { labels: topZones.map(z => z[0]), datasets: [{ data: topZones.map(z => z[1]), backgroundColor: '#5b7fa6', borderRadius: 6, borderSkipped: false }] },
     options: { ...chartDefaults, plugins: { legend: { display: false } }, indexAxis: 'y' }
   }));
-
-  el.innerHTML = html;
 }
 
 /* ---------- export to Excel ---------- */
