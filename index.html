@@ -648,11 +648,75 @@
   .list-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 
   /* mobile */
-  @media (max-width: 640px) {
+  /* ══════════════════ MÒBIL ══════════════════ */
+  @media (max-width: 700px) {
     body.mobile-list-view #map { display: none; }
-    body.mobile-list-view .sidebar { flex: 1; height: auto; width: 100%; }
+    body.mobile-list-view .sidebar { flex: 1; height: auto; width: 100%; border-left: none; }
     body:not(.mobile-list-view) .sidebar { display: none; }
+
+    /* Header: 1 sola fila compacta */
+    header { overflow: visible; }
+    .header-row1 {
+      height: 44px; padding: 0 10px; gap: 6px;
+    }
+    .header-row1 h1 { font-size: 12px; }
+    .header-sep { display: none; }
+    .layer-group { display: none; }
+    .sync-status { display: none; }
+    #theme-toggle { display: none; }
+    .geocoder-wrap { flex: 1; min-width: 0; }
+    #geocoder-input { width: 100% !important; font-size: 12px; }
+    #geocoder-input:focus { width: 100% !important; }
+
+    /* Fila 2: scroll horitzontal amb icones */
+    .header-row2 {
+      height: 44px; padding: 0 10px; gap: 5px;
+      overflow-x: auto; overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .header-row2::-webkit-scrollbar { display: none; }
+    .header-row2 .header-spacer { display: none; }
+    .header-row2 .mode-toggle,
+    .header-row2 .small-btn {
+      flex-shrink: 0; white-space: nowrap;
+      font-size: 11px; padding: 6px 10px;
+    }
     #mobile-view-toggle { display: inline-block !important; }
+
+    /* Selector de capes com a chip scrollable a la fila 2 */
+    #mobile-layers { display: flex !important; }
+    .mobile-layers {
+      display: flex; gap: 3px; flex-shrink: 0;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 999px; padding: 2px;
+    }
+    .mobile-layers .layer-btn { font-size: 11px; padding: 3px 9px; }
+
+    /* Opcions avançades: graella 2 columnes */
+    .header-extra {
+      padding: 8px 10px; gap: 5px;
+    }
+    .header-extra .small-btn {
+      flex: 1 1 calc(50% - 3px); font-size: 11px; padding: 7px 8px;
+      text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* Sidebar mòbil */
+    .sidebar { padding: 12px; }
+
+    /* Modal a pantalla completa en mòbil */
+    .modal { width: 100%; max-width: 100%; border-radius: 16px 16px 0 0; max-height: 92vh; }
+    .modal-overlay { align-items: flex-end; }
+    .modal-cols { flex-direction: column; gap: 12px; }
+    .modal-col-photo { flex: 1; }
+
+    /* Geocoder dropdown a mòbil */
+    #geocoder-results { max-height: 160px; }
+  }
+
+  @media (max-width: 400px) {
+    .header-row1 h1 { display: none; }
   }
 </style>
 
@@ -709,6 +773,12 @@
     </div>
     <!-- Fila 2: accions principals + opcions avançades -->
     <div class="header-row2">
+      <div class="mobile-layers" id="mobile-layers" style="display:none">
+        <button class="layer-btn" data-layer="none">Cap</button>
+        <button class="layer-btn" data-layer="districtes">Dist.</button>
+        <button class="layer-btn active" data-layer="barris">Barris</button>
+        <button class="layer-btn" data-layer="seccions">Sec.</button>
+      </div>
       <button class="mode-toggle" id="mode-toggle">+ Afegir incidència</button>
       <div class="header-sep"></div>
       <button class="small-btn" id="geo-btn">📍 Ubicació actual</button>
