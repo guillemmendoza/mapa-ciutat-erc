@@ -498,15 +498,32 @@
 
   /* mode clar */
   body.light {
-    --bg: #f4f6fa; --bg-secondary: #ffffff; --bg-tertiary: #eaecf2;
-    --text: #0d1520; --text-secondary: #4a5a72; --text-muted: #8a9ab2;
-    --border: rgba(0,0,0,0.1); --border-strong: rgba(0,0,0,0.25);
-    --shadow: 0 4px 20px rgba(0,0,0,0.12); --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
+    --bg: #f2f3f7; --bg-secondary: #ffffff; --bg-tertiary: #e8eaf0;
+    --bg-elevated: rgba(255, 255, 255, 0.8);
+    --text: #1c1c1e; --text-secondary: #6b7280; --text-muted: #9aa3b2;
+    --border: rgba(0,0,0,0.08); --border-strong: rgba(0,0,0,0.18);
+    --shadow: 0 8px 32px rgba(0,0,0,0.1); --shadow-sm: 0 2px 12px rgba(0,0,0,0.06);
     --accent-dim: rgba(248,88,56,0.1);
   }
   body.light #map { background: #e8edf5; }
-  body.light .leaflet-popup-content-wrapper { background: #fff; color: #0d1520; }
+  body.light .leaflet-popup-content-wrapper { background: #fff; color: #1c1c1e; border-color: rgba(0,0,0,0.1); }
   body.light .leaflet-popup-tip { background: #fff; }
+  /* header i row2 en clar */
+  body.light .header-row2 { background: rgba(255,255,255,0.6); }
+  /* segmented control i botons en clar */
+  body.light .layer-group { background: rgba(120,120,128,0.12); }
+  body.light .small-btn { background: rgba(120,120,128,0.12); color: var(--text); }
+  body.light .small-btn:hover { background: rgba(120,120,128,0.2); }
+  body.light .search-bar { background: rgba(120,120,128,0.1); }
+  body.light .search-bar:focus-within { background: rgba(120,120,128,0.16); }
+  body.light .login-box select, body.light .login-box input[type="password"] { background: rgba(120,120,128,0.1); }
+  body.light .modal-actions button { background: rgba(120,120,128,0.12); }
+  body.light .modal-actions button.primary { background: var(--accent); color: #fff; }
+  body.light .filter-bar select,
+  body.light .filter-bar { background: var(--bg-secondary); }
+  body.light .card-thumb.thumb-broken::after { background: var(--bg-tertiary); }
+  /* popup del mapa: text fosc en clar */
+  body.light .leaflet-popup-content div[style*="9aa6c0"] { color: #6b7280 !important; }
 
   /* cluster personalitzat */
   .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
