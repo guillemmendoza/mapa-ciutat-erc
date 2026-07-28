@@ -25,9 +25,9 @@
     --bg-secondary: #0d1a30;
     --bg-tertiary: #132240;
     --bg-elevated: rgba(13, 26, 48, 0.72);
-    --text: #eef1f7;
-    --text-secondary: #7f90ad;
-    --text-muted: #4a5a72;
+    --text: #ffffff;
+    --text-secondary: #a3b0c7;
+    --text-muted: #6b7a94;
     --border: rgba(255,255,255,0.08);
     --border-strong: rgba(255,255,255,0.18);
     --radius: 16px;
@@ -561,7 +561,11 @@
   .char-counter.warn { color: #e67e22; }
 
   /* ── sticky search/filter ── */
-  .sidebar-sticky { position: sticky; top: 0; background: var(--bg); z-index: 10; padding-bottom: 4px; }
+  .sidebar-sticky {
+    position: sticky; top: -16px; z-index: 20;
+    background: var(--bg); margin: -16px -16px 0; padding: 16px 16px 8px;
+    border-bottom: 0.5px solid var(--border);
+  }
 
   /* ── back to top ── */
   #back-to-top {
