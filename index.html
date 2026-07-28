@@ -300,6 +300,15 @@
   .problem-card .pdesc { color: var(--text-secondary); font-size: 12px; margin-top: 2px; line-height: 1.4; font-weight: 450; }
   .creator-tag { color: var(--text-secondary); font-size: 11px; margin-top: 4px; font-weight: 500; }
   .card-thumb { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+  .card-thumb.thumb-broken {
+    position: relative;
+  }
+  .card-thumb.thumb-broken::after {
+    content: '🖼️'; position: absolute; inset: 0;
+    background: var(--bg-tertiary); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; opacity: 0.5;
+  }
   .problem-card img.full-photo { width: 100%; border-radius: 8px; margin-top: 8px; display: block; }
 
   /* botons d'acció de targeta */
@@ -2170,7 +2179,7 @@ function renderProblemSubList(list, listElId, countElId, isResolvedList) {
     const prioBadge = p.priority ? `<span class="priority-badge priority-${p.priority}">${priorityLabels[p.priority]}</span>` : '';
     const card = document.createElement('div');
     card.className = `problem-card${p.priority ? ' prio-' + p.priority : ''}`;
-    const thumbHtml = p.photoURL ? `<img class="card-thumb" src="${p.photoURL}" alt="">` : '';
+    const thumbHtml = p.photoURL ? `<img class="card-thumb" src="${p.photoURL}" alt="" onerror="this.classList.add('thumb-broken')">` : '';
     card.innerHTML = `
       <div class="card-top">
         <div class="card-top-left">
